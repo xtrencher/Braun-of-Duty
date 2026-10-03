@@ -11,7 +11,7 @@ export class HUD {
       energyLabel: $('energy-label'), energyCount: $('energy-count'), energyFill: $('energy-fill'),
       streak: $('streak'), streakWord: $('streak-word'), streakFill: $('streak-fill'),
       combat: $('combat-title'), act: $('act-line'), objective: $('objective-count'),
-      toast: $('toast'), health: $('npc-health'), healthFill: $('npc-health-fill'), layer: $('world-layer'),
+      elapsed: $('elapsed'), toast: $('toast'), health: $('npc-health'), healthFill: $('npc-health-fill'), layer: $('world-layer'),
     };
     this.anchored = [];    // { node, pos: Vector3, life, drift }
     this._v = new THREE.Vector3();
@@ -51,6 +51,12 @@ export class HUD {
     const m = Math.floor(s / 60), ss = Math.floor(s % 60).toString().padStart(2, '0');
     this.el.act.innerHTML = `AKT ${act} / ${total} &bull; ${m}:${ss}`;
     this.el.act.classList.toggle('urgent', s < 15);
+  }
+
+  setElapsed(seconds) {
+    const s = Math.max(0, Math.floor(seconds)), m = Math.floor(s / 60);
+    const txt = `${m}:${(s % 60).toString().padStart(2, '0')}`;
+    if (txt !== this._elapsedTxt) { this._elapsedTxt = txt; this.el.elapsed.textContent = txt; }
   }
 
   setObjective(n, total) { this.el.objective.innerHTML = `${n} / ${total} &bull; KARTA`; }
