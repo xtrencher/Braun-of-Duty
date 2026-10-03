@@ -21,7 +21,7 @@ const $ = id => document.getElementById(id);
 // ---------------------------------------------------------------- quality
 const QUALITIES = ['high', 'medium', 'low'];
 let quality = (() => { try { return localStorage.getItem('bod-quality'); } catch { return null; } })();
-if (!QUALITIES.includes(quality)) quality = 'high';
+if (!QUALITIES.includes(quality)) quality = 'low';
 const qualityButtons = [...$('quality').querySelectorAll('button')];
 const reflectQuality = () => qualityButtons.forEach(b => b.classList.toggle('on', b.dataset.q === quality));
 reflectQuality();
@@ -29,9 +29,14 @@ reflectQuality();
 // ---------------------------------------------------------------- renderer & scene
 const canvas = $('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', stencil: false });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.info.autoReset = false;
+function applyRendererQuality() {
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality === 'high' ? 2 : quality === 'medium' ? 1.5 : 1.25));
+  renderer.shadowMap.type = quality === 'high' ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+  renderer.shadowMap.needsUpdate = true;
+}
+applyRendererQuality();
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.95;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -132,11 +137,14 @@ function setQuality(q, persist = true) {
   quality = q; reflectQuality();
   if (persist) { try { localStorage.setItem('bod-quality', q); } catch { /* private mode */ } }
   applyShadowQuality();
+  applyRendererQuality();
   buildComposer();
+  resize();
 }
 qualityButtons.forEach(b => b.addEventListener('click', () => { setQuality(b.dataset.q); sfx.init(); sfx.gavel(); }));
 
 function resize() {
+  if (!renderer) return;
   const w = window.innerWidth, h = window.innerHeight;
   renderer.setSize(w, h, false);
   camera.aspect = w / h; camera.updateProjectionMatrix();
@@ -147,6 +155,10 @@ function resize() {
 window.addEventListener('resize', resize);
 buildComposer();
 resize();
+// Compile every shader up front (politician, card and foam included) so nothing stalls mid-game.
+npc.group.visible = true; card.group.visible = true; foam.points.visible = true;
+renderer.compile(scene, camera); renderer.compile(weapon.scene, weapon.camera);
+npc.group.visible = false; card.group.visible = false;
 
 // ---------------------------------------------------------------- game flow
 function farNode() {
@@ -349,6 +361,7 @@ function frame(now) {
     animateFlags(world.flags, now / 1000);
     hud.update(dt, null, 0, false);
   }
+  renderer.info.reset();
   if (grade) grade.uniforms.uTime.value = now / 1000;
   foam.setLightDir(sunDir);
   if (composer) composer.render();

@@ -28,16 +28,17 @@ with the Web Audio API. No build step, no external assets.
 
 ## Graphics
 
-The start screen has a **GRAFIKA** setting (remembered between visits):
+The start screen has a **GRAFIKA** setting (remembered between visits; the default is *Niska*, which already carries the full detail and lighting and is tuned for laptops and integrated graphics):
 
 | Setting | What it enables |
 | --- | --- |
 | Wysoka | 4096 px shadow maps, 4x MSAA, ground-truth ambient occlusion (GTAO), bloom, film grade (vignette, grain, lens aberration) |
 | Średnia | 2048 px shadows, 4x MSAA, bloom, film grade |
-| Niska | 1024 px shadows, no post-processing |
+| Niska | 1024 px shadows, pixel ratio capped at 1.25, no post-processing |
 
 If the first seconds of play run below about 28 fps the game steps the setting down by itself
-and shows a notice. The politician is a skinned character with blended joint weights, a painted
+and shows a notice. All static chamber geometry is merged per material into a few dozen draw
+calls, and every shader is compiled on the start screen so nothing stalls during play. The politician is a skinned character with blended joint weights, a painted
 suit (lapels, shirt, tie, pockets, cloth weave) and a sculpted head with a painted face.
 
 ## Controls
