@@ -63,7 +63,7 @@ const lerp3 = (a, b, t, out) => { out[0] = mix(a[0], b[0], t); out[1] = mix(a[1]
 
 // ---------------------------------------------------------------- material texture sets
 /** Lacquered hardwood: colour, normal and roughness maps. */
-export function woodSet({ base = '#8a4424', dark = '#4e2211', light = '#b0623a', size = 1024, grain = 46 } = {}) {
+export function woodSet({ base = '#8a4424', dark = '#4e2211', light = '#b0623a', size = 512, grain = 23 } = {}) {
   const w = size, h = size, height = new Float32Array(w * h);
   const cb = hex(base), cd = hex(dark), cl = hex(light), tmp = [0, 0, 0];
   const color = colorCanvas(w, h, (x, y, out) => {
@@ -85,7 +85,7 @@ export function woodSet({ base = '#8a4424', dark = '#4e2211', light = '#b0623a',
 }
 
 /** Wall panelling: wood with raised rectangular panels and mouldings. One tile = one panel bay. */
-export function panelSet({ base = '#6c4022', size = 1024 } = {}) {
+export function panelSet({ base = '#6c4022', size = 512 } = {}) {
   const w = size, h = size, height = new Float32Array(w * h);
   const cb = hex(base), cd = hex('#3a1e0c'), cl = hex('#9a6436'), tmp = [0, 0, 0];
   const profile = (u, v) => {
@@ -180,7 +180,7 @@ export function marbleSet({ base = '#e4d9c4', size = 512 } = {}) {
 }
 
 /** Travertine cladding: horizontal banding, pitted surface, large ashlar blocks (tile = 2 x 4 blocks). */
-export function travertineSet({ base = '#cdb892', size = 1024 } = {}) {
+export function travertineSet({ base = '#cdb892', size = 512 } = {}) {
   const w = size, h = size, height = new Float32Array(w * h);
   const cb = hex(base), cd = hex('#9d8a66'), cl = hex('#e6d8b8'), tmp = [0, 0, 0];
   const color = colorCanvas(w, h, (x, y, out) => {

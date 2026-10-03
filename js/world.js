@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from '../vendor/three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { mergeGeometries } from '../vendor/three/examples/jsm/utils/BufferGeometryUtils.js';
 import { L, tierFront, tierHeight, aisleHalfAngle, rowHalfAngle, cart } from './chamber.js';
 import { ringSectorGeometry, box, plane, boxUV, radialBox } from './geo.js';
 import * as T from './textures.js';
@@ -278,7 +279,39 @@ export function buildWorld(scene, quality = 'high') {
   if (quality !== 'low') { fill(21.5, -1.15, 5.6, 25); fill(21.5, 1.15, 5.6, 25); }
   lights.push(sun, spot);
 
+  batchStatic(group, new Set(flags));
   return { group, flags, lights, materials: M };
+}
+
+/**
+ * Merge every static Mesh in `group` that shares a material (and shadow flags) into one
+ * geometry, so the chamber renders in a few dozen draw calls instead of several hundred.
+ */
+function batchStatic(group, exclude) {
+  group.updateMatrixWorld(true);
+  const buckets = new Map(), victims = [];
+  group.traverse(o => {
+    if (!o.isMesh || o.isInstancedMesh || o.isSkinnedMesh || exclude.has(o)) return;
+    const key = o.material.uuid + (o.castShadow ? 'c' : '') + (o.receiveShadow ? 'r' : '');
+    let b = buckets.get(key);
+    if (!b) { b = { material: o.material, cast: o.castShadow, receive: o.receiveShadow, geos: [] }; buckets.set(key, b); }
+    let g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+    for (const name of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(name)) g.deleteAttribute(name);
+    if (!g.attributes.normal) g.computeVertexNormals();
+    if (!g.attributes.uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+    g.applyMatrix4(o.matrixWorld);
+    b.geos.push(g);
+    victims.push(o);
+  });
+  for (const o of victims) { o.parent.remove(o); o.geometry.dispose(); }
+  for (const b of buckets.values()) {
+    const merged = mergeGeometries(b.geos, false);
+    for (const g of b.geos) g.dispose();
+    if (!merged) continue;
+    const m = new THREE.Mesh(merged, b.material);
+    m.castShadow = b.cast; m.receiveShadow = b.receive; m.frustumCulled = false;
+    group.add(m);
+  }
 }
 
 /** Gentle flag wave. */

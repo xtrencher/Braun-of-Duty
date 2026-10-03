@@ -11,6 +11,8 @@ import { RoundedBoxGeometry } from '../vendor/three/examples/jsm/geometries/Roun
 // ---------------------------------------------------------------- small canvas helpers
 const canvas = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
 const smooth01 = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
+const hexRGB = s => [parseInt(s.slice(1, 3), 16), parseInt(s.slice(3, 5), 16), parseInt(s.slice(5, 7), 16)];
+const lighten = (s, k) => { const c = hexRGB(s).map(v => Math.max(0, Math.min(255, Math.round(k >= 0 ? v + (255 - v) * k : v * (1 + k))))); return `rgb(${c[0]},${c[1]},${c[2]})`; };
 const hashf = (x, y) => { let h = (x * 374761393 + y * 668265263) | 0; h = (h ^ (h >> 13)) * 1274126177; return ((h ^ (h >> 16)) >>> 0) / 4294967295; };
 function texOf(c, srgb = true, wrap = THREE.RepeatWrapping) { const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = wrap; t.anisotropy = 8; t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace; return t; }
 function normalFromHeight(h, w, hh, strength) {
@@ -37,7 +39,7 @@ function rasterize(g, w, h, fn) {
 }
 
 // ---------------------------------------------------------------- suit textures
-export function suitTextures(base = '#1b2640') {
+export function suitTextures(base = '#1b2640', { tie = true } = {}) {
   const W = 1024, H = 1024;
   const navy = base, navyLight = '#2a3756', navyDark = '#121a2e';
   // ---- jacket (torso): u around the body with the front centre at u = 0.5, v from hem (0) to collar (1)
@@ -72,23 +74,25 @@ export function suitTextures(base = '#1b2640') {
   poly(g, V, sh);
   // tie: knot at the collar, blade widening to v=0.5, tucked behind the jacket below 0.43
   const tieTop = 0.96, knotW = 0.016, tieW = 0.034;
-  poly(g, [[0.5 - knotW, tieTop], [0.5 + knotW, tieTop], [0.5 + knotW * 0.9, tieTop - 0.05], [0.5 - knotW * 0.9, tieTop - 0.05]], '#a30f18');
-  poly(g, [[0.5 - knotW * 0.7, tieTop - 0.05], [0.5 + knotW * 0.7, tieTop - 0.05], [0.5 + tieW, 0.5], [0.5, 0.4], [0.5 - tieW, 0.5]], '#c01420');
-  poly(mg, [[0.5 - knotW, tieTop], [0.5 + knotW, tieTop], [0.5 + tieW, 0.5], [0.5, 0.4], [0.5 - tieW, 0.5]], '#0000ff');
-  g.save(); g.beginPath(); g.moveTo(X(0.5 - knotW), Y(tieTop - 0.05)); g.lineTo(X(0.5 + knotW), Y(tieTop - 0.05)); g.lineTo(X(0.5 + tieW), Y(0.5)); g.lineTo(X(0.5), Y(0.4)); g.lineTo(X(0.5 - tieW), Y(0.5)); g.closePath(); g.clip();
+  if (tie) poly(g, [[0.5 - knotW, tieTop], [0.5 + knotW, tieTop], [0.5 + knotW * 0.9, tieTop - 0.05], [0.5 - knotW * 0.9, tieTop - 0.05]], '#a30f18');
+  if (tie) poly(g, [[0.5 - knotW * 0.7, tieTop - 0.05], [0.5 + knotW * 0.7, tieTop - 0.05], [0.5 + tieW, 0.5], [0.5, 0.4], [0.5 - tieW, 0.5]], '#c01420');
+  if (tie) poly(mg, [[0.5 - knotW, tieTop], [0.5 + knotW, tieTop], [0.5 + tieW, 0.5], [0.5, 0.4], [0.5 - tieW, 0.5]], '#0000ff');
+  if (tie) { g.save(); g.beginPath(); g.moveTo(X(0.5 - knotW), Y(tieTop - 0.05)); g.lineTo(X(0.5 + knotW), Y(tieTop - 0.05)); g.lineTo(X(0.5 + tieW), Y(0.5)); g.lineTo(X(0.5), Y(0.4)); g.lineTo(X(0.5 - tieW), Y(0.5)); g.closePath(); g.clip();
   g.strokeStyle = 'rgba(255,255,255,0.14)'; g.lineWidth = 4;
   for (let k = -30; k < 30; k++) { g.beginPath(); g.moveTo(X(0.5 - 0.1) + k * 26, Y(1.0)); g.lineTo(X(0.5 + 0.1) + k * 26, Y(0.3)); g.stroke(); }
   const tg = g.createLinearGradient(X(0.5 - tieW), 0, X(0.5 + tieW), 0); tg.addColorStop(0, 'rgba(0,0,0,0.35)'); tg.addColorStop(0.35, 'rgba(255,255,255,0.12)'); tg.addColorStop(1, 'rgba(0,0,0,0.4)');
-  g.fillStyle = tg; g.fillRect(X(0.4), Y(1), X(0.2), H); g.restore();
+  g.fillStyle = tg; g.fillRect(X(0.4), Y(1), X(0.2), H); g.restore(); }
   // lapels (satin), with a notch
   for (const sgn of [-1, 1]) {
     const L = [[0.5 + sgn * 0.05, 1.0], [0.5 + sgn * 0.105, 0.86], [0.5 + sgn * 0.08, 0.83], [0.5 + sgn * 0.012, 0.43], [0.5 + sgn * 0.003, 0.43]];
     poly(g, L, navyLight); poly(mg, L, '#ffff00');
     g.strokeStyle = 'rgba(0,0,0,0.5)'; g.lineWidth = 3; g.beginPath(); L.forEach(([u, v], i) => i ? g.lineTo(X(u), Y(v)) : g.moveTo(X(u), Y(v))); g.stroke();
   }
-  // shirt collar band and points
+  // shirt collar band and points (spread open when there is no tie)
   g.fillStyle = '#f3f3f0'; g.fillRect(X(0.38), 0, X(0.24), Y(0.965));
-  for (const sgn of [-1, 1]) poly(g, [[0.5 + sgn * 0.02, 0.985], [0.5 + sgn * 0.075, 0.985], [0.5 + sgn * 0.05, 0.93]], '#f3f3f0');
+  if (!tie) { poly(g, [[0.5 - 0.03, 1.0], [0.5 + 0.03, 1.0], [0.5, 0.9]], '#d9a98a'); poly(mg, [[0.5 - 0.03, 1.0], [0.5 + 0.03, 1.0], [0.5, 0.9]], '#ff00ff'); }
+  for (const sgn of [-1, 1]) poly(g, [[0.5 + sgn * 0.02, 0.985], [0.5 + sgn * (tie ? 0.075 : 0.095), 0.985], [0.5 + sgn * (tie ? 0.05 : 0.075), tie ? 0.93 : 0.9]], '#f3f3f0');
+  if (!tie) for (const sgn of [-1, 1]) { g.strokeStyle = 'rgba(0,0,0,0.25)'; g.lineWidth = 3; g.beginPath(); g.moveTo(X(0.5 + sgn * 0.02), Y(0.985)); g.lineTo(X(0.5 + sgn * 0.075), Y(0.9)); g.stroke(); }
   g.fillStyle = navyDark; g.fillRect(0, 0, X(0.38), Y(0.95)); g.fillRect(X(0.62), 0, X(0.38), Y(0.95));   // jacket collar at the back
   // front edge below the button, buttons
   g.strokeStyle = 'rgba(0,0,0,0.55)'; g.lineWidth = 4; g.beginPath(); g.moveTo(X(0.5), Y(0.43)); g.lineTo(X(0.5), Y(0)); g.stroke();
@@ -106,6 +110,7 @@ export function suitTextures(base = '#1b2640') {
     else if (b && !r && !gg) { height[i] = 0.53; rough[i] = 0.32; }       // tie (blue)
     else if (gg && b && !r) { height[i] = 0.62; rough[i] = 0.3; }         // buttons (cyan)
     else if (r && !gg && !b) { height[i] = 0.54; }                         // pocket flaps (red)
+    else if (r && b && !gg) { height[i] = 0.44; rough[i] = 0.58; }         // open neck (magenta)
   }
   weave(height, W, H, 0.012);
   const jacket = { map: texOf(c), normalMap: texOf(normalFromHeight(height, W, H, 3.0), false), roughnessMap: texOf(grayFromArray(rough, W, H), false) };
@@ -152,7 +157,7 @@ export function headProfile() {
   return { pts, vOf, rOf };
 }
 
-export function faceTextures(profile, { tone = '#e2b08c', hair = '#2a1c13' } = {}) {
+export function faceTextures(profile, { tone = '#e2b08c', hair = '#2a1c13', eyes = '#3a2412', brows = '#2c1d14', age = 0 } = {}) {
   const W = 1024, H = 1024, c = canvas(W, H), g = c.getContext('2d');
   const { vOf, rOf } = profile;
   const py = ym => (1 - vOf(ym)) * H;
@@ -180,15 +185,28 @@ export function faceTextures(profile, { tone = '#e2b08c', hair = '#2a1c13' } = {
     const ex = px(s * 0.033, 0.02), ey = py(0.02), rx = px(0.016, 0.02) - px(0, 0.02), ry = (py(0.012) - py(0.028)) / 2;
     g.fillStyle = '#f4f1ee'; g.beginPath(); g.ellipse(ex, ey, rx, ry, 0, 0, Math.PI * 2); g.fill();
     const ir = ry * 0.95;
-    const ig = g.createRadialGradient(ex, ey, 1, ex, ey, ir); ig.addColorStop(0, '#5a3a1e'); ig.addColorStop(0.7, '#3a2412'); ig.addColorStop(1, '#1e1208');
+    const ig = g.createRadialGradient(ex, ey, 1, ex, ey, ir); ig.addColorStop(0, lighten(eyes, 0.35)); ig.addColorStop(0.7, eyes); ig.addColorStop(1, lighten(eyes, -0.45));
     g.fillStyle = ig; g.beginPath(); g.arc(ex, ey, ir, 0, Math.PI * 2); g.fill();
     g.fillStyle = '#0a0806'; g.beginPath(); g.arc(ex, ey, ir * 0.45, 0, Math.PI * 2); g.fill();
     g.fillStyle = 'rgba(255,255,255,0.85)'; g.beginPath(); g.arc(ex - ir * 0.35, ey - ir * 0.35, ir * 0.2, 0, Math.PI * 2); g.fill();
     g.strokeStyle = '#2a1812'; g.lineWidth = 7; g.beginPath(); g.ellipse(ex, ey, rx * 1.02, ry * 1.05, 0, Math.PI * 1.05, Math.PI * 1.95); g.stroke();   // upper lid + lashes
     g.strokeStyle = 'rgba(120,70,60,0.6)'; g.lineWidth = 3; g.beginPath(); g.ellipse(ex, ey, rx * 1.02, ry * 1.05, 0, Math.PI * 0.1, Math.PI * 0.9); g.stroke();
     // eyebrow
-    g.strokeStyle = '#2c1d14'; g.lineWidth = 16; g.lineCap = 'round'; g.beginPath();
+    g.strokeStyle = brows; g.lineWidth = 13; g.lineCap = 'round'; g.beginPath();
     g.moveTo(px(s * 0.012, 0.046), py(0.046)); g.quadraticCurveTo(px(s * 0.035, 0.056), py(0.056), px(s * 0.058, 0.047), py(0.047)); g.stroke();
+  }
+  // age lines: forehead, crow's feet, nasolabial folds, under-eye, chin
+  if (age > 0) {
+    const line = (pts, w, a) => { g.strokeStyle = `rgba(95,55,45,${a})`; g.lineWidth = w; g.lineCap = 'round'; g.beginPath(); pts.forEach(([xm, ym], i) => i ? g.lineTo(px(xm, ym), py(ym)) : g.moveTo(px(xm, ym), py(ym))); g.stroke(); };
+    for (const y of [0.078, 0.092, 0.106]) line([[-0.045, y - 0.004], [-0.02, y], [0.02, y], [0.045, y - 0.004]], 3, 0.22 * age);
+    for (const s of [-1, 1]) {
+      for (const k of [-1, 0, 1]) line([[s * 0.052, 0.02 + k * 0.006], [s * 0.068, 0.02 + k * 0.012]], 2.5, 0.25 * age);
+      line([[s * 0.016, -0.03], [s * 0.03, -0.05], [s * 0.034, -0.075]], 4, 0.28 * age);           // nasolabial fold
+      line([[s * 0.02, 0.006], [s * 0.034, 0.002], [s * 0.048, 0.006]], 3, 0.18 * age);            // under-eye
+      blush(s * 0.034, 0.004, 40, `rgba(120,70,70,${0.14 * age})`);
+    }
+    line([[-0.02, -0.1], [0, -0.096], [0.02, -0.1]], 3, 0.2 * age);
+    line([[-0.03, -0.085], [-0.038, -0.1]], 3, 0.18 * age); line([[0.03, -0.085], [0.038, -0.1]], 3, 0.18 * age);
   }
   // mouth
   const my = py(-0.072), mw = px(0.027, -0.072) - px(0, -0.072);
@@ -197,17 +215,19 @@ export function faceTextures(profile, { tone = '#e2b08c', hair = '#2a1c13' } = {
   g.strokeStyle = '#4a2420'; g.lineWidth = 3; g.beginPath(); g.moveTo(W / 2 - mw, my); g.quadraticCurveTo(W / 2, my + 4, W / 2 + mw, my); g.stroke();
   blush(0, -0.063, 60, 'rgba(255,230,220,0.2)');
   // hair: hairline high at the front, down to the nape at the back
-  const hairline = u => { const f = (Math.cos((u - 0.5) * Math.PI * 2) + 1) / 2; return -0.045 + 0.145 * Math.pow(smooth01(f), 0.75) + (Math.abs(u - 0.5) > 0.06 && Math.abs(u - 0.5) < 0.13 ? -0.012 : 0); };
+  const hairline = u => { const f = (Math.cos((u - 0.5) * Math.PI * 2) + 1) / 2; return -0.045 + (0.145 + age * 0.012) * Math.pow(smooth01(f), 0.75) + (Math.abs(u - 0.5) > 0.06 && Math.abs(u - 0.5) < 0.13 ? -0.012 - age * 0.012 : 0); };
   g.fillStyle = hair; g.beginPath(); g.moveTo(0, 0);
   for (let i = 0; i <= 200; i++) { const u = i / 200; g.lineTo(u * W, py(hairline(u))); }
   g.lineTo(W, 0); g.closePath(); g.fill();
   g.save(); g.beginPath(); g.moveTo(0, 0); for (let i = 0; i <= 200; i++) { const u = i / 200; g.lineTo(u * W, py(hairline(u)) + 6); } g.lineTo(W, 0); g.closePath(); g.clip();
-  for (let i = 0; i < 9000; i++) { const x = Math.random() * W, y = Math.random() * H * 0.6; g.strokeStyle = `rgba(${Math.random() < 0.5 ? '10,6,4' : '110,80,55'},${0.15 + Math.random() * 0.3})`; g.lineWidth = 1 + Math.random(); g.beginPath(); g.moveTo(x, y); g.lineTo(x + (Math.random() - 0.5) * 6, y + 10 + Math.random() * 30); g.stroke(); }
+  const hc = hexRGB(hair), strandDark = `${Math.round(hc[0] * 0.45)},${Math.round(hc[1] * 0.45)},${Math.round(hc[2] * 0.45)}`, strandLight = `${Math.min(255, hc[0] + 60)},${Math.min(255, hc[1] + 60)},${Math.min(255, hc[2] + 60)}`;
+  for (let i = 0; i < 9000; i++) { const x = Math.random() * W, y = Math.random() * H * 0.6; g.strokeStyle = `rgba(${Math.random() < 0.5 ? strandDark : strandLight},${0.15 + Math.random() * 0.3})`; g.lineWidth = 1 + Math.random(); g.beginPath(); g.moveTo(x, y); g.lineTo(x + (Math.random() - 0.5) * 6, y + 10 + Math.random() * 30); g.stroke(); }
   g.restore();
   // roughness: lips and T-zone a bit shinier, hair matte
   const rough = new Float32Array(W * H).fill(0.58);
   const img = g.getImageData(0, 0, W, H).data;
-  for (let i = 0; i < W * H; i++) { const r = img[i * 4], gg = img[i * 4 + 1], b = img[i * 4 + 2]; if (r < 90 && gg < 70 && b < 60) rough[i] = 0.72; }
+  const hcol = hexRGB(hair);
+  for (let i = 0; i < W * H; i++) { const r = img[i * 4], gg = img[i * 4 + 1], b = img[i * 4 + 2]; if (Math.abs(r - hcol[0]) + Math.abs(gg - hcol[1]) + Math.abs(b - hcol[2]) < 90) rough[i] = 0.72; }
   return { map: texOf(c, true, THREE.ClampToEdgeWrapping), roughnessMap: texOf(grayFromArray(rough, W, H), false, THREE.ClampToEdgeWrapping) };
 }
 
@@ -277,9 +297,9 @@ class SkinBuilder {
  * Bone rotation conventions (local x axis): legs/arms swing forward with negative x, knees and
  * elbows flex with positive / negative x respectively; arms lift sideways with rotation z.
  */
-export function createHuman({ tone = '#e2b08c', suit = '#1b2640', hair = '#2a1c13' } = {}) {
+export function createHuman({ tone = '#e2b08c', suit = '#1b2640', hair = '#2a1c13', eyes = '#3a2412', brows = '#2c1d14', age = 0, tie = true } = {}) {
   const em = { emissive: 0xff2a1a, emissiveIntensity: 0 };
-  const suitT = suitTextures(suit), skin = skinTile(tone), profile = headProfile(), face = faceTextures(profile, { tone, hair });
+  const suitT = suitTextures(suit, { tie }), skin = skinTile(tone), profile = headProfile(), face = faceTextures(profile, { tone, hair, eyes, brows, age });
   const sheen = { sheen: 0.45, sheenRoughness: 0.7, sheenColor: new THREE.Color(0x4a5a86) };
   const mats = {
     jacket: new THREE.MeshPhysicalMaterial({ ...suitT.jacket, normalScale: new THREE.Vector2(0.8, 0.8), roughness: 1, ...sheen, envMapIntensity: 0.45, side: THREE.DoubleSide, ...em }),
@@ -287,7 +307,7 @@ export function createHuman({ tone = '#e2b08c', suit = '#1b2640', hair = '#2a1c1
     sleeve: new THREE.MeshPhysicalMaterial({ ...suitT.sleeve, normalScale: new THREE.Vector2(0.7, 0.7), roughness: 0.88, ...sheen, envMapIntensity: 0.4, ...em }),
     skin: new THREE.MeshPhysicalMaterial({ ...skin, normalScale: new THREE.Vector2(0.5, 0.5), roughness: 0.56, sheen: 0.3, sheenRoughness: 0.8, sheenColor: new THREE.Color(0xffd0b8), clearcoat: 0.06, clearcoatRoughness: 0.6, envMapIntensity: 0.4, ...em }),
     face: new THREE.MeshPhysicalMaterial({ map: face.map, roughnessMap: face.roughnessMap, normalMap: skin.normalMap, normalScale: new THREE.Vector2(0.35, 0.35), roughness: 1, sheen: 0.3, sheenRoughness: 0.8, sheenColor: new THREE.Color(0xffd0b8), clearcoat: 0.08, clearcoatRoughness: 0.5, envMapIntensity: 0.4, ...em }),
-    hair: new THREE.MeshPhysicalMaterial({ color: new THREE.Color(hair), roughness: 0.5, anisotropy: 0.7, sheen: 0.35, sheenRoughness: 0.5, sheenColor: new THREE.Color(0x8a6a4a), envMapIntensity: 0.5, ...em }),
+    hair: new THREE.MeshPhysicalMaterial({ color: new THREE.Color(hair), roughness: 0.45, anisotropy: 0.7, sheen: 0.4, sheenRoughness: 0.5, sheenColor: new THREE.Color(hair).multiplyScalar(0.8), envMapIntensity: 0.6, ...em }),
     shoe: new THREE.MeshPhysicalMaterial({ color: 0x0c0a09, roughness: 0.26, clearcoat: 1, clearcoatRoughness: 0.12, envMapIntensity: 0.9, ...em }),
     dark: new THREE.MeshStandardMaterial({ color: 0x1a1a1e, roughness: 0.7, ...em }),
   };
@@ -346,7 +366,7 @@ export function createHuman({ tone = '#e2b08c', suit = '#1b2640', hair = '#2a1c1
   const hairPts = profile.pts.filter(p => p.y > -0.03).map(p => new THREE.Vector2(p.x * 1.05 + 0.004, p.y + 0.004));
   const hairMesh = new THREE.Mesh(new THREE.LatheGeometry(hairPts, 48, Math.PI * 0.36, Math.PI * 1.28), mats.hair); hairMesh.scale.set(1, 1, 1.1); hairMesh.castShadow = true; headGroup.add(hairMesh);
   // crown: covers the top down to the painted hairline on the forehead
-  const hairTop = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.36), mats.hair); hairTop.position.set(0, 0.062, -0.014); hairTop.scale.set(1.12, 1.0, 1.16); headGroup.add(hairTop);
+  const hairTop = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.36), mats.hair); hairTop.position.set(0, 0.064, -0.02); hairTop.scale.set(1.12, 1.06, 1.2); hairTop.rotation.x = -0.12; headGroup.add(hairTop);
   for (const s of [-1, 1]) { const ear = new THREE.Mesh(new THREE.SphereGeometry(0.02, 12, 10), mats.skin); ear.position.set(s * 0.108, 0.0, 0.0); ear.scale.set(0.45, 1.3, 0.9); headGroup.add(ear); }
   const nose = new THREE.Mesh(new THREE.SphereGeometry(0.014, 12, 10), mats.skin); nose.position.set(0, -0.022, 0.108); nose.scale.set(1, 1.35, 1.1); headGroup.add(nose);
   const chin = new THREE.Mesh(new THREE.SphereGeometry(0.03, 12, 10), mats.skin); chin.position.set(0, -0.105, 0.075); chin.scale.set(1.1, 0.8, 0.9); headGroup.add(chin);

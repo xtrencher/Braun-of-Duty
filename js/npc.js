@@ -29,7 +29,7 @@ export class Politician {
   }
 
   _build() {
-    const human = createHuman({ tone: '#e2b08c', suit: '#1b2640', hair: '#2a1c13' });
+    const human = createHuman({ tone: '#dcab88', suit: '#1a2440', hair: '#b9b3aa', eyes: '#4f86b4', brows: '#7a6a5c', age: 1, tie: false });
     this.body = human.root;                      // pivot at the feet, faces +z
     this.group.add(this.body);
     this.bones = human.bones;
@@ -231,12 +231,11 @@ export class Politician {
 export class Card {
   constructor(scene) {
     this.group = new THREE.Group();
-    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, emissive: 0x88aaff, emissiveIntensity: 0.6 });
+    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, emissive: 0x9ab8ff, emissiveIntensity: 1.6 });
     const card = new THREE.Mesh(new RoundedBoxGeometry(0.36, 0.02, 0.24, 2, 0.008), mat);
     const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.022, 0.05), new THREE.MeshStandardMaterial({ color: 0xc8161c, emissive: 0xc8161c, emissiveIntensity: 0.5 }));
     stripe.position.z = -0.08;
     this.group.add(card, stripe);
-    const glow = new THREE.PointLight(0x88aaff, 6, 4, 2); glow.position.y = 0.4; this.group.add(glow);
     this.group.visible = false;
     scene.add(this.group);
     this.active = false; this.t = 0;
