@@ -2,7 +2,10 @@
 <html lang="pl">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#1a110c">
   <title>Braun of Duty — Reasumpcja: do skutku</title>
   <meta name="description" content="Pierwszoosobowa gra 3D w przeglądarce: ugaś uciekającego posła gaśnicą i odnajdź zaginioną większość.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -58,6 +61,15 @@
     <div id="world-layer"></div>
   </div>
 
+  <!-- ===== Touch controls (shown on touch devices while playing) ===== -->
+  <div id="touch-ui" class="hidden">
+    <div id="stick"><div id="stick-knob"></div></div>
+    <button id="btn-pause" class="tbtn tbtn-pause" aria-label="Pauza">II</button>
+    <button id="btn-sprint" class="tbtn tbtn-sprint">BIEG</button>
+    <button id="btn-fire" class="tbtn tbtn-fire">GAŚ!</button>
+    <div id="rotate-hint">Obróć telefon poziomo</div>
+  </div>
+
   <!-- ===== Start / pause / end overlay ===== -->
   <div id="overlay">
     <div class="overlay-card">
@@ -69,7 +81,11 @@
         <b>3 karty</b>, zanim marszałek ogłosi reasumpcję.
       </p>
       <div id="overlay-stats" class="overlay-stats hidden"></div>
-      <ul class="controls">
+      <ul class="controls" id="controls-touch" style="display:none">
+        <li>Lewa strona ekranu: <b>joystick</b> (ruch) &nbsp;&middot;&nbsp; prawa: <b>przeciągnij</b>, aby się rozglądać</li>
+        <li>Przytrzymaj <b>GAŚ!</b>, aby lać pianę &nbsp;&middot;&nbsp; <b>BIEG</b> przełącza sprint</li>
+      </ul>
+      <ul class="controls" id="controls-desktop">
         <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> ruch &nbsp;&middot;&nbsp; <kbd>Shift</kbd> bieg</li>
         <li><kbd>Mysz</kbd> rozglądanie &nbsp;&middot;&nbsp; <kbd>LPM</kbd> gaśnica</li>
         <li><kbd>Esc</kbd> pauza</li>

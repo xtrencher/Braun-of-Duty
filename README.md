@@ -43,6 +43,13 @@ suit (lapels, shirt, tie, pockets, cloth weave) and a sculpted head with a paint
 
 ## Controls
 
+On phones and tablets the game switches to touch controls automatically: a virtual joystick on the
+lower-left (push to the edge to sprint), drag anywhere else to look, hold **GAŚ!** to spray, **BIEG**
+toggles sprint, **II** pauses. It goes fullscreen and asks for landscape on start.
+
+Desktop:
+
+
 | Input | Action |
 | --- | --- |
 | `W` `A` `S` `D` / arrows | Move |
@@ -75,7 +82,8 @@ js/chamber.js       chamber layout math: height field, collision, navigation gra
 js/world.js         procedural Sejm chamber (tiers, seats, balcony, flags, lights)
 js/geo.js           ring-sector geometry helper
 js/textures.js      canvas-generated PBR texture sets (wood, travertine, carpet, leather, banner, smoke)
-js/player.js        first-person controller
+js/player.js        first-person controller (mouse, keyboard and touch input)
+js/touch.js         virtual joystick, drag-to-look and on-screen buttons
 js/weapon.js        extinguisher + hands viewmodel
 js/particles.js     foam particle system with floor/NPC collision
 js/npc.js           fleeing politician AI, knockback physics, voting card pickup
