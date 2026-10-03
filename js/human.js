@@ -146,7 +146,7 @@ export function skinTile(tone = '#e2b08c') {
 
 /** Head profile (radius, height) from chin to crown, resampled by arc length so texture v is metric. */
 export function headProfile() {
-  const ctrl = [[0.0, -0.125], [0.045, -0.122], [0.078, -0.1], [0.096, -0.06], [0.106, -0.012], [0.109, 0.04], [0.106, 0.085], [0.09, 0.122], [0.058, 0.147], [0.0, 0.157]];
+  const ctrl = [[0.0, -0.125], [0.05, -0.121], [0.086, -0.098], [0.102, -0.058], [0.108, -0.01], [0.11, 0.04], [0.107, 0.088], [0.092, 0.124], [0.06, 0.149], [0.0, 0.158]];
   const curve = new THREE.CatmullRomCurve3(ctrl.map(([r, y]) => new THREE.Vector3(r, y, 0)), false, 'catmullrom', 0.5);
   const pts = curve.getSpacedPoints(48).map(p => new THREE.Vector2(Math.max(0, p.x), p.y));
   pts[0].x = 0; pts[pts.length - 1].x = 0;
@@ -192,8 +192,9 @@ export function faceTextures(profile, { tone = '#e2b08c', hair = '#2a1c13', eyes
     g.strokeStyle = '#2a1812'; g.lineWidth = 7; g.beginPath(); g.ellipse(ex, ey, rx * 1.02, ry * 1.05, 0, Math.PI * 1.05, Math.PI * 1.95); g.stroke();   // upper lid + lashes
     g.strokeStyle = 'rgba(120,70,60,0.6)'; g.lineWidth = 3; g.beginPath(); g.ellipse(ex, ey, rx * 1.02, ry * 1.05, 0, Math.PI * 0.1, Math.PI * 0.9); g.stroke();
     // eyebrow
-    g.strokeStyle = brows; g.lineWidth = 13; g.lineCap = 'round'; g.beginPath();
-    g.moveTo(px(s * 0.012, 0.046), py(0.046)); g.quadraticCurveTo(px(s * 0.035, 0.056), py(0.056), px(s * 0.058, 0.047), py(0.047)); g.stroke();
+    g.strokeStyle = brows; g.lineWidth = 15; g.lineCap = 'round'; g.beginPath();
+    g.moveTo(px(s * 0.012, 0.042), py(0.042)); g.quadraticCurveTo(px(s * 0.035, 0.05), py(0.05), px(s * 0.06, 0.04), py(0.04)); g.stroke();
+    for (let k = 0; k < 40; k++) { const t = k / 40, bx = s * (0.012 + 0.048 * t), by = 0.042 + 0.012 * Math.sin(t * Math.PI) + (Math.random() - 0.5) * 0.004; g.strokeStyle = `rgba(90,70,55,${0.3 + Math.random() * 0.4})`; g.lineWidth = 2; g.beginPath(); g.moveTo(px(bx, by), py(by)); g.lineTo(px(bx + s * 0.003, by + 0.004), py(by + 0.004)); g.stroke(); }
   }
   // age lines: forehead, crow's feet, nasolabial folds, under-eye, chin
   if (age > 0) {
@@ -206,13 +207,21 @@ export function faceTextures(profile, { tone = '#e2b08c', hair = '#2a1c13', eyes
       blush(s * 0.034, 0.004, 40, `rgba(120,70,70,${0.14 * age})`);
     }
     line([[-0.02, -0.1], [0, -0.096], [0.02, -0.1]], 3, 0.2 * age);
+    line([[-0.007, 0.052], [-0.009, 0.036]], 4, 0.3 * age); line([[0.007, 0.052], [0.009, 0.036]], 4, 0.3 * age);      // glabella furrows
+    for (const s of [-1, 1]) {
+      line([[s * 0.05, -0.06], [s * 0.066, -0.085], [s * 0.06, -0.108]], 5, 0.22 * age);                          // jowls
+      line([[s * 0.018, 0.0], [s * 0.034, -0.006], [s * 0.05, 0.0]], 4, 0.22 * age);                               // eye bags
+    }
+    g.fillStyle = `rgba(80,40,30,${0.18 * age})`; g.fillRect(px(-0.07, 0.06), py(0.062), px(0.07, 0.06) - px(-0.07, 0.06), py(0.048) - py(0.062)); // brow ridge shadow
+    blush(0, -0.025, 70, `rgba(200,80,70,${0.16 * age})`); blush(-0.055, -0.03, 120, `rgba(200,90,80,${0.14 * age})`); blush(0.055, -0.03, 120, `rgba(200,90,80,${0.14 * age})`);
     line([[-0.03, -0.085], [-0.038, -0.1]], 3, 0.18 * age); line([[0.03, -0.085], [0.038, -0.1]], 3, 0.18 * age);
   }
   // mouth
   const my = py(-0.072), mw = px(0.027, -0.072) - px(0, -0.072);
-  g.fillStyle = '#a85a52'; g.beginPath(); g.moveTo(W / 2 - mw, my); g.quadraticCurveTo(W / 2 - mw * 0.4, my - 12, W / 2 - mw * 0.15, my - 7); g.quadraticCurveTo(W / 2, my - 11, W / 2 + mw * 0.15, my - 7); g.quadraticCurveTo(W / 2 + mw * 0.4, my - 12, W / 2 + mw, my); g.closePath(); g.fill();
-  g.fillStyle = '#c47a6c'; g.beginPath(); g.moveTo(W / 2 - mw, my); g.quadraticCurveTo(W / 2, my + 26, W / 2 + mw, my); g.closePath(); g.fill();
-  g.strokeStyle = '#4a2420'; g.lineWidth = 3; g.beginPath(); g.moveTo(W / 2 - mw, my); g.quadraticCurveTo(W / 2, my + 4, W / 2 + mw, my); g.stroke();
+  const dn = age * 5;
+  g.fillStyle = '#b0665c'; g.beginPath(); g.moveTo(W / 2 - mw, my + dn); g.quadraticCurveTo(W / 2 - mw * 0.4, my - 9, W / 2 - mw * 0.15, my - 6); g.quadraticCurveTo(W / 2, my - 9, W / 2 + mw * 0.15, my - 6); g.quadraticCurveTo(W / 2 + mw * 0.4, my - 9, W / 2 + mw, my + dn); g.closePath(); g.fill();
+  g.fillStyle = '#c98378'; g.beginPath(); g.moveTo(W / 2 - mw, my + dn); g.quadraticCurveTo(W / 2, my + 20 - age * 4, W / 2 + mw, my + dn); g.closePath(); g.fill();
+  g.strokeStyle = '#4a2420'; g.lineWidth = 3; g.beginPath(); g.moveTo(W / 2 - mw, my + dn); g.quadraticCurveTo(W / 2, my + 3, W / 2 + mw, my + dn); g.stroke();
   blush(0, -0.063, 60, 'rgba(255,230,220,0.2)');
   // hair: hairline high at the front, down to the nape at the back
   const hairline = u => { const f = (Math.cos((u - 0.5) * Math.PI * 2) + 1) / 2; return -0.045 + (0.145 + age * 0.012) * Math.pow(smooth01(f), 0.75) + (Math.abs(u - 0.5) > 0.06 && Math.abs(u - 0.5) < 0.13 ? -0.012 - age * 0.012 : 0); };
@@ -221,7 +230,13 @@ export function faceTextures(profile, { tone = '#e2b08c', hair = '#2a1c13', eyes
   g.lineTo(W, 0); g.closePath(); g.fill();
   g.save(); g.beginPath(); g.moveTo(0, 0); for (let i = 0; i <= 200; i++) { const u = i / 200; g.lineTo(u * W, py(hairline(u)) + 6); } g.lineTo(W, 0); g.closePath(); g.clip();
   const hc = hexRGB(hair), strandDark = `${Math.round(hc[0] * 0.45)},${Math.round(hc[1] * 0.45)},${Math.round(hc[2] * 0.45)}`, strandLight = `${Math.min(255, hc[0] + 60)},${Math.min(255, hc[1] + 60)},${Math.min(255, hc[2] + 60)}`;
-  for (let i = 0; i < 9000; i++) { const x = Math.random() * W, y = Math.random() * H * 0.6; g.strokeStyle = `rgba(${Math.random() < 0.5 ? strandDark : strandLight},${0.15 + Math.random() * 0.3})`; g.lineWidth = 1 + Math.random(); g.beginPath(); g.moveTo(x, y); g.lineTo(x + (Math.random() - 0.5) * 6, y + 10 + Math.random() * 30); g.stroke(); }
+  for (let i = 0; i < 14000; i++) {
+    const x = Math.random() * W, y = Math.random() * H * 0.6;
+    const front = Math.abs(x / W - 0.5) < 0.2;                     // swept up and back above the forehead
+    const dx = front ? (x / W - 0.5) * 30 : (Math.random() - 0.5) * 8, dy = front ? -(12 + Math.random() * 26) : 10 + Math.random() * 30;
+    const tone = Math.random(); g.strokeStyle = `rgba(${tone < 0.4 ? strandDark : tone < 0.75 ? strandLight : '236,226,206'},${0.12 + Math.random() * 0.3})`;
+    g.lineWidth = 1 + Math.random() * 1.2; g.beginPath(); g.moveTo(x, y); g.lineTo(x + dx, y + dy); g.stroke();
+  }
   g.restore();
   // roughness: lips and T-zone a bit shinier, hair matte
   const rough = new Float32Array(W * H).fill(0.58);
@@ -366,7 +381,10 @@ export function createHuman({ tone = '#e2b08c', suit = '#1b2640', hair = '#2a1c1
   const hairPts = profile.pts.filter(p => p.y > -0.03).map(p => new THREE.Vector2(p.x * 1.05 + 0.004, p.y + 0.004));
   const hairMesh = new THREE.Mesh(new THREE.LatheGeometry(hairPts, 48, Math.PI * 0.36, Math.PI * 1.28), mats.hair); hairMesh.scale.set(1, 1, 1.1); hairMesh.castShadow = true; headGroup.add(hairMesh);
   // crown: covers the top down to the painted hairline on the forehead
-  const hairTop = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.36), mats.hair); hairTop.position.set(0, 0.064, -0.02); hairTop.scale.set(1.12, 1.06, 1.2); hairTop.rotation.x = -0.12; headGroup.add(hairTop);
+  const hairTop = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.36), mats.hair); hairTop.position.set(0, 0.066, -0.018); hairTop.scale.set(1.12, 1.1, 1.2); hairTop.rotation.x = -0.1; headGroup.add(hairTop);
+  // quiff: hair swept up from the forehead, slightly higher at the front
+  const quiff = new THREE.Mesh(new THREE.SphereGeometry(0.06, 20, 12), mats.hair); quiff.position.set(0, 0.118, 0.012); quiff.scale.set(1.35, 0.5, 1.0); quiff.rotation.x = 0.2; headGroup.add(quiff);
+  for (const s of [-1, 1]) { const side = new THREE.Mesh(new THREE.SphereGeometry(0.05, 16, 10), mats.hair); side.position.set(s * 0.085, 0.07, -0.02); side.scale.set(0.55, 1.1, 1.3); headGroup.add(side); }
   for (const s of [-1, 1]) { const ear = new THREE.Mesh(new THREE.SphereGeometry(0.02, 12, 10), mats.skin); ear.position.set(s * 0.108, 0.0, 0.0); ear.scale.set(0.45, 1.3, 0.9); headGroup.add(ear); }
   const nose = new THREE.Mesh(new THREE.SphereGeometry(0.014, 12, 10), mats.skin); nose.position.set(0, -0.022, 0.108); nose.scale.set(1, 1.35, 1.1); headGroup.add(nose);
   const chin = new THREE.Mesh(new THREE.SphereGeometry(0.03, 12, 10), mats.skin); chin.position.set(0, -0.105, 0.075); chin.scale.set(1.1, 0.8, 0.9); headGroup.add(chin);
@@ -388,6 +406,12 @@ export function createHuman({ tone = '#e2b08c', suit = '#1b2640', hair = '#2a1c1
     const shoe = new THREE.Mesh(new RoundedBoxGeometry(0.1, 0.07, 0.29, 3, 0.025), mats.shoe); shoe.position.set(0, -0.045, 0.06); shoe.castShadow = true; bones['foot' + side].add(shoe);
     const sock = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.054, 0.07, 14), mats.dark); sock.position.set(0, 0.0, 0); bones['foot' + side].add(sock);
   }
+  // the little white-and-red heart pin on the left lapel
+  const heart = new THREE.Shape(); heart.moveTo(0, -0.011); heart.bezierCurveTo(0.012, 0.0, 0.012, 0.012, 0.0, 0.006); heart.bezierCurveTo(-0.012, 0.012, -0.012, 0.0, 0, -0.011);
+  const pinRed = new THREE.Mesh(new THREE.ExtrudeGeometry(heart, { depth: 0.003, bevelEnabled: false }), new THREE.MeshStandardMaterial({ color: 0xd4202c, roughness: 0.35 }));
+  const pinWhite = new THREE.Mesh(new THREE.ExtrudeGeometry(heart, { depth: 0.002, bevelEnabled: false }), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 }));
+  pinWhite.scale.set(0.62, 0.62, 1); pinWhite.position.z = 0.003;
+  const pin = new THREE.Group(); pin.add(pinRed, pinWhite); pin.position.set(-0.1, 0.1, 0.155); pin.rotation.y = -0.3; chest.add(pin);
   // card held in the left hand
   const card = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.1, 0.006), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x6688ff, emissiveIntensity: 0.25 }));
   card.position.set(-0.01, -0.12, 0.07); card.rotation.x = 0.3; bones.handL.add(card);

@@ -16,7 +16,7 @@ export class Politician {
     this.facing = 0;
     this.state = 'hidden';
     this.hp = MAX_HP; this.maxHp = MAX_HP;
-    this.glow = 0;
+    this.glow = 0; this.foamed = 0;
     this.sinceHit = 99;
     this.hitAccum = 0;
     this.stunTimer = 0;
@@ -29,12 +29,13 @@ export class Politician {
   }
 
   _build() {
-    const human = createHuman({ tone: '#dcab88', suit: '#1a2440', hair: '#b9b3aa', eyes: '#4f86b4', brows: '#7a6a5c', age: 1, tie: false });
+    const human = createHuman({ tone: '#d6a07c', suit: '#1a2440', hair: '#aea28c', eyes: '#5a85a6', brows: '#8a7a66', age: 1.2, tie: false });
     this.body = human.root;                      // pivot at the feet, faces +z
     this.group.add(this.body);
     this.bones = human.bones;
     this.mats = human.mats;
     this.skinned = human.mesh;
+    this._white = new THREE.Color(0.95, 0.95, 0.97);
     this.group.visible = false;
   }
 
@@ -44,7 +45,7 @@ export class Politician {
     this.lastNode = node;
     this.pos.set(node.x, node.y, node.z);
     this.vel.set(0, 0, 0);
-    this.hp = this.maxHp; this.glow = 0; this.sinceHit = 99; this.hitAccum = 0; this.panic = 0;
+    this.hp = this.maxHp; this.glow = 0; this.foamed = 0; this.sinceHit = 99; this.hitAccum = 0; this.panic = 0;
     this.state = 'idle'; this.edge = null; this.path = []; this.goal = -1; this.replan = 0;
     this.group.visible = true;
     this.body.rotation.set(0, 0, 0); this.body.position.set(0, 0, 0);
@@ -98,7 +99,7 @@ export class Politician {
     if (this.state === 'hidden' || this.state === 'down') return { impact: false };
     const intensity = Math.min(1, hits / 4);
     this.hp = Math.max(0, this.hp - 15 * intensity * dt);
-    this.glow = 1; this.sinceHit = 0; this.panic = 5;
+    this.glow = 1; this.sinceHit = 0; this.panic = 5; this.foamed = Math.min(1, this.foamed + intensity * dt * 0.6);
     this.hitAccum += dt * (0.5 + intensity);
     let impact = false;
     if (this.hitAccum > 0.5 && this.state !== 'airborne') {
@@ -136,7 +137,8 @@ export class Politician {
     if (this.state === 'hidden') return;
     this.sinceHit += dt;
     this.glow = Math.max(0, this.glow - dt * 2.2);
-    for (const m of this.mats) m.emissiveIntensity = this.glow * 1.4;
+    this.foamed = Math.max(0, this.foamed - dt * 0.012);
+    for (const m of this.mats) { m.emissive.setRGB(1, 0.16, 0.1).lerp(this._white, this.foamed * 0.9 / Math.max(0.001, this.foamed * 0.9 + this.glow * 1.4) * (this.glow < 0.05 ? 1 : 0.5)); m.emissiveIntensity = this.glow * 1.4 + this.foamed * 0.9; }
     this.panic = Math.max(0, this.panic - dt);
     const dPlayer = Math.hypot(playerPos.x - this.pos.x, playerPos.z - this.pos.z);
 

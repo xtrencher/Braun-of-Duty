@@ -10,7 +10,7 @@ import { buildWorld, animateFlags } from './world.js';
 import { buildGraph } from './chamber.js';
 import { Player } from './player.js';
 import { Weapon } from './weapon.js';
-import { FoamSystem } from './particles.js';
+import { FoamSystem, FoamSplats } from './particles.js';
 import { Politician, Card } from './npc.js';
 import { HUD } from './hud.js';
 import { Sfx } from './audio.js';
@@ -20,7 +20,7 @@ const $ = id => document.getElementById(id);
 
 // ---------------------------------------------------------------- quality
 const QUALITIES = ['high', 'medium', 'low'];
-let quality = (() => { try { return localStorage.getItem('bod-quality'); } catch { return null; } })();
+let quality = (() => { try { return localStorage.getItem('bod-quality-v2'); } catch { return null; } })();
 if (!QUALITIES.includes(quality)) quality = 'low';
 const qualityButtons = [...$('quality').querySelectorAll('button')];
 const reflectQuality = () => qualityButtons.forEach(b => b.classList.toggle('on', b.dataset.q === quality));
@@ -57,6 +57,7 @@ const player = new Player(camera);
 const weapon = new Weapon();
 weapon.scene.environment = envTex; weapon.scene.environmentIntensity = 0.6;
 const foam = new FoamSystem(scene, camera);
+const splats = new FoamSplats(scene, 2500);
 const npc = new Politician(scene, graph);
 const card = new Card(scene);
 const hud = new HUD(camera);
@@ -135,7 +136,7 @@ function applyShadowQuality() {
 
 function setQuality(q, persist = true) {
   quality = q; reflectQuality();
-  if (persist) { try { localStorage.setItem('bod-quality', q); } catch { /* private mode */ } }
+  if (persist) { try { localStorage.setItem('bod-quality-v2', q); } catch { /* private mode */ } }
   applyShadowQuality();
   applyRendererQuality();
   buildComposer();
@@ -156,9 +157,10 @@ window.addEventListener('resize', resize);
 buildComposer();
 resize();
 // Compile every shader up front (politician, card and foam included) so nothing stalls mid-game.
-npc.group.visible = true; card.group.visible = true; foam.points.visible = true;
+npc.group.visible = true; card.group.visible = true; foam.points.visible = true; splats.mesh.count = 1;
 renderer.compile(scene, camera); renderer.compile(weapon.scene, weapon.camera);
-npc.group.visible = false; card.group.visible = false;
+npc.group.visible = false; card.group.visible = false; splats.mesh.count = 0;
+startBtn.disabled = false; startBtn.textContent = 'KLIKNIJ, ABY ZACZĄĆ';
 
 // ---------------------------------------------------------------- game flow
 function farNode() {
@@ -182,7 +184,7 @@ function startAct() {
 
 function newGame() {
   Object.assign(G, { act: 1, cards: 0, energy: ENERGY_MAX, idle: 0, locked: false, streak: 0, combo: 0, comboTimer: 0, lastHit: 99, totalTime: 0, impacts: 0, reasumpcje: 0 });
-  player.reset(); foam.clear(); hud.clearAnchored();
+  player.reset(); foam.clear(); splats.clear(); hud.clearAnchored();
   hud.setEnergy(G.energy, ENERGY_MAX); hud.setStreak(0, 0); hud.setCombat(false);
   startAct();
 }
@@ -270,10 +272,12 @@ function step(dt) {
   if (wantFire) {
     weapon.nozzleWorld(camera, nozPos, nozDir);
     const power = 0.75 + 0.25 * Math.min(1, G.energy / 30);
-    foam.emit(nozPos, nozDir, dt, 950, power);
+    foam.emit(nozPos, nozDir, dt, 1700, power);
   }
 
   const hits = foam.update(dt, npc.target());
+  for (const [x, y, z] of foam.floorHits) if (Math.random() < 0.35) splats.add(x, y, z);
+  splats.update(dt);
   npc.update(dt, player.pos);
   if (hits > 0) {
     const r = npc.onHit(hits, player.pos, dt);
@@ -374,7 +378,7 @@ requestAnimationFrame(frame);
 
 // Small debug surface for automated checks (?debug=1 also skips pointer lock).
 window.__game = {
-  G, player, npc, foam, hud, card, scene, world, renderer,
+  G, player, npc, foam, splats, hud, card, scene, world, renderer,
   start: () => startBtn.click(),
   setView: (x, z, yaw, pitch) => { player.pos.x = x; player.pos.z = z; player.yaw = yaw; player.pitch = pitch; },
   fire: on => { player.firing = on; },

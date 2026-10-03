@@ -55,7 +55,9 @@ suit (lapels, shirt, tie, pockets, cloth weave) and a sculpted head with a paint
 
 * Each **AKT** gives you 90 seconds to knock the politician down and pick up the dropped
   **KARTA**. Three cards win the game (*Zaginiona większość* — "the missing majority").
-* The foam stream highlights the politician in red, knocks him back and shows his health bar.
+* The extinguisher throws a dense cloud that hangs in the air for seconds and leaves white foam
+  on the carpet, the stairs and the politician himself. The stream highlights him in red, knocks
+  him back and shows his health bar.
   Keep the stream on him for a **HIT** streak and **COMBO!** multipliers.
 * **ENERGIA** is the extinguisher's charge. It drains while spraying and refills when you let go;
   run it dry and the tank must recover before it sprays again. When the HUD reads
