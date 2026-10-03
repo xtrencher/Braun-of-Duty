@@ -14,14 +14,16 @@ import { FoamSystem, FoamSplats } from './particles.js';
 import { Politician, Card } from './npc.js';
 import { HUD } from './hud.js';
 import { Sfx } from './audio.js';
+import { isTouchDevice, setupTouch } from './touch.js';
 
 const ACTS = 3, ACT_TIME = 90, ENERGY_MAX = 105;
 const $ = id => document.getElementById(id);
 
 // ---------------------------------------------------------------- quality
 const QUALITIES = ['high', 'medium', 'low'];
+const TOUCH = isTouchDevice();
 let quality = (() => { try { return localStorage.getItem('bod-quality-v2'); } catch { return null; } })();
-if (!QUALITIES.includes(quality)) quality = 'low';
+if (!QUALITIES.includes(quality) || TOUCH) quality = 'low';
 const qualityButtons = [...$('quality').querySelectorAll('button')];
 const reflectQuality = () => qualityButtons.forEach(b => b.classList.toggle('on', b.dataset.q === quality));
 reflectQuality();
@@ -32,7 +34,7 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPrefer
 renderer.shadowMap.enabled = true;
 renderer.info.autoReset = false;
 function applyRendererQuality() {
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality === 'high' ? 2 : quality === 'medium' ? 1.5 : 1.25));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, TOUCH ? 1 : quality === 'high' ? 2 : quality === 'medium' ? 1.5 : 1.25));
   renderer.shadowMap.type = quality === 'high' ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
   renderer.shadowMap.needsUpdate = true;
 }
@@ -62,6 +64,9 @@ const npc = new Politician(scene, graph);
 const card = new Card(scene);
 const hud = new HUD(camera);
 const sfx = new Sfx();
+const touch = TOUCH ? setupTouch(player, { onPause: () => pause() }) : null;
+if (TOUCH) { $('controls-touch').style.display = ''; $('controls-desktop').style.display = 'none'; $('quality').closest('.quality-row').style.display = 'none'; }
+if (touch) touch.show(false);
 
 const sunDir = new THREE.Vector3(3, 40, 14).sub(new THREE.Vector3(0, 0, 12)).normalize();
 const G = {
@@ -201,6 +206,7 @@ function fail() {
 function win() {
   G.state = 'won';
   player.enabled = false; player.firing = false; sfx.hiss(false); sfx.win();
+  if (touch) { touch.reset(); touch.show(false); }
   hud.setCombat(false);
   if (document.pointerLockElement) document.exitPointerLock();
   const m = Math.floor(G.totalTime / 60), s = Math.floor(G.totalTime % 60).toString().padStart(2, '0');
@@ -215,6 +221,7 @@ function pause() {
   if (G.state !== 'playing') return;
   G.state = 'paused';
   player.enabled = false; player.firing = false; sfx.hiss(false); sfx.suspend();
+  if (touch) { touch.reset(); touch.show(false); }
   overlayText.textContent = 'PAUZA — poseł też odpoczywa. Kliknij, aby wrócić do gry.';
   overlayStats.classList.add('hidden');
   startBtn.textContent = 'WRÓĆ DO GRY';
@@ -224,11 +231,20 @@ function pause() {
 function resumePlay() {
   overlay.classList.add('hidden'); hud.show(true);
   player.enabled = true; G.state = 'playing'; sfx.resume();
+  if (touch) touch.show(true);
 }
 
 startBtn.addEventListener('click', () => {
   sfx.init();
   if (G.state === 'start' || G.state === 'won') newGame();
+  if (TOUCH) {
+    // phones: no pointer lock; go fullscreen and try to lock landscape, then play
+    const el = document.documentElement;
+    const fs = el.requestFullscreen ? el.requestFullscreen({ navigationUI: 'hide' }) : el.webkitRequestFullscreen ? el.webkitRequestFullscreen() : null;
+    if (fs && fs.catch) fs.catch(() => {});
+    try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); } catch { /* unsupported */ }
+    resumePlay(); return;
+  }
   if (G.debug || !canvas.requestPointerLock) { resumePlay(); return; }
   const p = canvas.requestPointerLock({ unadjustedMovement: true });
   if (p && p.catch) p.catch(() => canvas.requestPointerLock());
@@ -241,6 +257,10 @@ document.addEventListener('pointerlockerror', () => {
   overlayText.textContent = 'Nie udało się przechwycić myszy. Kliknij jeszcze raz, aby spróbować ponownie.';
 });
 document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+window.addEventListener('orientationchange', () => setTimeout(resize, 300));
+canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); pause(); hud.toast('UTRACONO KONTEKST GRAFIKI', 'bad', 3000); });
+canvas.addEventListener('webglcontextrestored', () => { applyShadowQuality(); buildComposer(); resize(); });
+window.addEventListener('error', e => console.error('Braun of Duty:', e.message));
 window.addEventListener('keydown', e => { if (e.code === 'Escape' && G.debug) pause(); });
 
 // ---------------------------------------------------------------- simulation step
@@ -272,7 +292,7 @@ function step(dt) {
   if (wantFire) {
     weapon.nozzleWorld(camera, nozPos, nozDir);
     const power = 0.75 + 0.25 * Math.min(1, G.energy / 30);
-    foam.emit(nozPos, nozDir, dt, 1700, power);
+    foam.emit(nozPos, nozDir, dt, TOUCH ? 1000 : 1700, power);
   }
 
   const hits = foam.update(dt, npc.target());
@@ -349,7 +369,7 @@ function frame(now) {
   last = now;
   if (G.state === 'playing') {
     step(dt);
-    if (!watch.checked && !G.debug) {
+    if (!watch.checked && !G.debug && !TOUCH) {
       watch.frames++; watch.time += dt;
       if (watch.time > 6) {
         watch.checked = true;

@@ -24,15 +24,22 @@ export class Player {
     window.addEventListener('keydown', e => { if (!e.repeat) this.keys.add(e.code); if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') this.sprint = true; });
     window.addEventListener('keyup', e => { this.keys.delete(e.code); if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') this.sprint = false; });
     window.addEventListener('blur', () => { this.keys.clear(); this.firing = false; this.sprint = false; });
-    document.addEventListener('mousemove', e => {
-      if (!this.enabled) return;
-      const s = 0.0022;
-      this.yaw -= e.movementX * s;
-      this.pitch = THREE.MathUtils.clamp(this.pitch - e.movementY * s, -1.35, 1.35);
-      this.lookDelta.x += e.movementX; this.lookDelta.y += e.movementY;
+    this.touchMove = null;
+    document.addEventListener('pointermove', e => {
+      if (!this.enabled || e.pointerType === 'touch') return;
+      this.applyLook(e.movementX, e.movementY);
     });
-    document.addEventListener('mousedown', e => { if (this.enabled && e.button === 0) this.firing = true; });
-    document.addEventListener('mouseup', e => { if (e.button === 0) this.firing = false; });
+    document.addEventListener('pointerdown', e => { if (this.enabled && e.pointerType !== 'touch' && e.button === 0 && !e.target.closest('#overlay')) this.firing = true; });
+    document.addEventListener('pointerup', e => { if (e.pointerType !== 'touch' && e.button === 0) this.firing = false; });
+    document.addEventListener('contextmenu', e => { if (this.enabled) e.preventDefault(); });
+  }
+
+  /** Rotate the view by a mouse/touch delta in pixels. */
+  applyLook(dx, dy) {
+    const s = 0.0022;
+    this.yaw -= dx * s;
+    this.pitch = THREE.MathUtils.clamp(this.pitch - dy * s, -1.35, 1.35);
+    this.lookDelta.x += dx; this.lookDelta.y += dy;
   }
 
   reset() {
@@ -50,9 +57,10 @@ export class Player {
     if (k.has('KeyS') || k.has('ArrowDown')) fz -= 1;
     if (k.has('KeyD') || k.has('ArrowRight')) fx += 1;
     if (k.has('KeyA') || k.has('ArrowLeft')) fx -= 1;
+    if (this.touchMove) { fx += this.touchMove.x; fz += this.touchMove.y; }
     const want = new THREE.Vector3();
     if (this.enabled && (fx || fz)) {
-      const len = Math.hypot(fx, fz); fx /= len; fz /= len;
+      const len = Math.max(1, Math.hypot(fx, fz)); fx /= len; fz /= len;
       const sy = Math.sin(this.yaw), cy = Math.cos(this.yaw);
       // forward = (-sin yaw, -cos yaw), right = (cos yaw, -sin yaw)
       want.x = -sy * fz + cy * fx;
