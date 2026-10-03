@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>Braun of Duty — Reasumpcja: do skutku</title>
+  <meta name="description" content="Pierwszoosobowa gra 3D w przeglądarce: ugaś uciekającego posła gaśnicą i odnajdź zaginioną większość.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Oswald:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/three.module.min.js" } }
+  </script>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- ===== HUD ===== -->
+  <div id="hud" class="hidden">
+    <div id="crosshair"></div>
+
+    <!-- Top-left: energy panel + streak meter -->
+    <div class="hud-tl">
+      <div class="panel" id="energy-panel">
+        <div class="panel-title">REŻYSER</div>
+        <div class="panel-row">
+          <span id="energy-label" class="label">ENERGIA</span>
+          <span id="energy-count" class="count">105 / 105</span>
+        </div>
+        <div class="bar"><div id="energy-fill" class="bar-fill"></div></div>
+      </div>
+      <div id="streak" class="streak">
+        <div id="streak-word" class="comic">HIT</div>
+        <div class="streak-bar"><div id="streak-fill"></div></div>
+      </div>
+    </div>
+
+    <!-- Top-center: combat header + act line -->
+    <div class="hud-tc">
+      <div id="combat-title" class="combat-title">REASUMPCJA: DO SKUTKU</div>
+      <div id="act-line" class="act-line">AKT 1 / 3 &bull; 1:30</div>
+    </div>
+
+    <!-- Top-right: objective -->
+    <div class="hud-tr">
+      <div class="panel" id="objective-panel">
+        <div class="panel-title">ZAGINIONA WIĘKSZOŚĆ</div>
+        <div class="panel-row"><span id="objective-count" class="count">0 / 3 &bull; KARTA</span></div>
+      </div>
+    </div>
+
+    <!-- Center toast -->
+    <div id="toast" class="toast"></div>
+
+    <!-- World-anchored overlays (health bar, markers, popups) -->
+    <div id="npc-health" class="npc-health"><div id="npc-health-fill"></div></div>
+    <div id="world-layer"></div>
+  </div>
+
+  <!-- ===== Start / pause / end overlay ===== -->
+  <div id="overlay">
+    <div class="overlay-card">
+      <div class="overlay-kicker">SEJM RP &bull; SALA POSIEDZEŃ</div>
+      <h1 class="overlay-title">BRAUN <span>OF</span> DUTY</h1>
+      <div class="overlay-sub">REASUMPCJA: DO SKUTKU</div>
+      <p id="overlay-text" class="overlay-text">
+        Poseł uciekł z sali z kartą do głosowania. Dogoń go, ugaś go gaśnicą i odzyskaj
+        <b>3 karty</b>, zanim marszałek ogłosi reasumpcję.
+      </p>
+      <div id="overlay-stats" class="overlay-stats hidden"></div>
+      <ul class="controls">
+        <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> ruch &nbsp;&middot;&nbsp; <kbd>Shift</kbd> bieg</li>
+        <li><kbd>Mysz</kbd> rozglądanie &nbsp;&middot;&nbsp; <kbd>LPM</kbd> gaśnica</li>
+        <li><kbd>Esc</kbd> pauza</li>
+      </ul>
+      <button id="start-btn" class="start-btn">KLIKNIJ, ABY ZACZĄĆ</button>
+      <div class="overlay-foot">WASD move &middot; mouse look &middot; left click to spray &middot; collect 3 voting cards</div>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
