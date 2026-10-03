@@ -4,22 +4,22 @@
 const D2R = Math.PI / 180;
 
 export const L = {
-  R0: 7.5,            // radius of the first tier's desk front
+  R0: 8.5,            // radius of the first tier's desk front
   TW: 2.4,            // radial width of one tier
   TH: 0.42,           // height step between tiers
   NT: 6,              // number of tiers
   DESK_D: 0.7,        // radial depth of a desk
-  SEAT_D: 0.75,       // radial depth of the seat band behind a desk
+  SEAT_D: 0.9,        // radial depth of the seat band (cushion + padded back) behind a desk
   STAIR_L: 1.3,       // radial length of a flight of stairs
   STEPS: 3,           // steps per flight
   AISLES: [-52, -26, 0, 26, 52].map(d => d * D2R),
   AISLE_W: 1.7,       // aisle width in metres
-  HALF_ANG: 80 * D2R, // half opening angle of the hall
-  WALL_R: 23.2,       // back wall radius
-  DAIS_R: 2.7,        // presidium dais radius
+  HALF_ANG: 86 * D2R, // half opening angle of the hall (nearly a semicircle)
+  WALL_R: 24.2,       // back wall radius
+  DAIS_R: 3.3,        // presidium platform radius (incl. steps)
   CEIL_H: 9.6,
-  BALCONY_H: 5.0,
-  ROSTRUM: { x: 0, z: 3.6, hw: 0.6, hd: 0.4 },
+  BALCONY_H: 6.2,
+  HORSESHOE: { x: 0, z: 3.95, r: 2.15 },   // stenographers' desk + rostrum in the well
 };
 L.BAND = L.DESK_D + L.SEAT_D;        // blocked band (desk + seats)
 L.TOP_R = L.R0 + L.NT * L.TW;        // outer edge of the last tier's walkway
@@ -63,8 +63,8 @@ export function isBlocked(x, z, pr = 0.35) {
   if (r < L.DAIS_R + pr) return true;
   if (r > L.WALL_R - 0.4 - pr) return true;
   if (Math.abs(a) > L.HALF_ANG - (pr + 0.15) / Math.max(r, 1)) return true;
-  const R = L.ROSTRUM;
-  if (Math.abs(x - R.x) < R.hw + pr && Math.abs(z - R.z) < R.hd + pr) return true;
+  const H = L.HORSESHOE;
+  if (Math.hypot(x - H.x, z - H.z) < H.r + pr) return true;
   if (r < L.R0 - pr) return false;
   if (aisleIndexAt(r, a, pr) >= 0) return false;
   for (let t = 1; t <= L.NT; t++) {
@@ -95,7 +95,7 @@ export function buildGraph() {
   const nodes = [], edges = [];
   const levels = L.NT + 2;
   const id = (i, t) => i * levels + t;
-  const levelRadius = t => t === 0 ? L.R0 - 2.3 : t === L.NT + 1 ? (L.TOP_R + L.WALL_R - 0.4) / 2 : tierFront(t) + L.BAND + (L.TW - L.BAND) / 2;
+  const levelRadius = t => t === 0 ? L.R0 - 1.9 : t === L.NT + 1 ? (L.TOP_R + L.WALL_R - 0.4) / 2 : tierFront(t) + L.BAND + (L.TW - L.BAND) / 2;
   for (let i = 0; i < L.AISLES.length; i++) {
     for (let t = 0; t < levels; t++) {
       const r = levelRadius(t), a = L.AISLES[i];

@@ -1,4 +1,11 @@
 import * as THREE from 'three';
+import { EffectComposer } from '../vendor/three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from '../vendor/three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from '../vendor/three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from '../vendor/three/examples/jsm/postprocessing/OutputPass.js';
+import { GTAOPass } from '../vendor/three/examples/jsm/postprocessing/GTAOPass.js';
+import { ShaderPass } from '../vendor/three/examples/jsm/postprocessing/ShaderPass.js';
+import { RoomEnvironment } from '../vendor/three/examples/jsm/environments/RoomEnvironment.js';
 import { buildWorld, animateFlags } from './world.js';
 import { buildGraph } from './chamber.js';
 import { Player } from './player.js';
@@ -11,32 +18,46 @@ import { Sfx } from './audio.js';
 const ACTS = 3, ACT_TIME = 90, ENERGY_MAX = 105;
 const $ = id => document.getElementById(id);
 
+// ---------------------------------------------------------------- quality
+const QUALITIES = ['high', 'medium', 'low'];
+let quality = (() => { try { return localStorage.getItem('bod-quality'); } catch { return null; } })();
+if (!QUALITIES.includes(quality)) quality = 'high';
+const qualityButtons = [...$('quality').querySelectorAll('button')];
+const reflectQuality = () => qualityButtons.forEach(b => b.classList.toggle('on', b.dataset.q === quality));
+reflectQuality();
+
 // ---------------------------------------------------------------- renderer & scene
 const canvas = $('game');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', stencil: false });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.1;
+renderer.toneMappingExposure = 0.95;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.autoClear = false;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x1a110c);
-const camera = new THREE.PerspectiveCamera(75, 1, 0.08, 90);
+scene.background = new THREE.Color(0xd9d4c8);
+scene.fog = new THREE.FogExp2(0xcfc9ba, 0.006);
+const camera = new THREE.PerspectiveCamera(72, 1, 0.08, 90);
 scene.add(camera);
 
-const world = buildWorld(scene);
+const pmrem = new THREE.PMREMGenerator(renderer);
+const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environment = envTex; scene.environmentIntensity = 0.3;
+
+const world = buildWorld(scene, quality);
 const graph = buildGraph();
 const player = new Player(camera);
 const weapon = new Weapon();
+weapon.scene.environment = envTex; weapon.scene.environmentIntensity = 0.6;
 const foam = new FoamSystem(scene, camera);
 const npc = new Politician(scene, graph);
 const card = new Card(scene);
 const hud = new HUD(camera);
 const sfx = new Sfx();
 
+const sunDir = new THREE.Vector3(3, 40, 14).sub(new THREE.Vector3(0, 0, 12)).normalize();
 const G = {
   state: 'start', act: 1, cards: 0, time: ACT_TIME, energy: ENERGY_MAX, idle: 0, emptyPlayed: false,
   streak: 0, combo: 0, comboTimer: 0, hitTextTimer: 0, markerTimer: 0, lastHit: 99,
@@ -47,14 +68,84 @@ const G = {
 const overlay = $('overlay'), startBtn = $('start-btn'), overlayText = $('overlay-text'), overlayStats = $('overlay-stats');
 const nozPos = new THREE.Vector3(), nozDir = new THREE.Vector3(), tmp = new THREE.Vector3(), tmp2 = new THREE.Vector3();
 
+// ---------------------------------------------------------------- post-processing
+const GradeShader = {
+  uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uRes: { value: new THREE.Vector2(1, 1) }, uStrength: { value: 1 } },
+  vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `
+    uniform sampler2D tDiffuse; uniform float uTime; uniform vec2 uRes; uniform float uStrength;
+    varying vec2 vUv;
+    float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+    void main() {
+      vec2 d = vUv - 0.5;
+      float r2 = dot(d, d);
+      vec2 off = d * r2 * 0.012 * uStrength;                       // lens chromatic aberration at the edges
+      vec3 col;
+      col.r = texture2D(tDiffuse, vUv + off).r;
+      col.g = texture2D(tDiffuse, vUv).g;
+      col.b = texture2D(tDiffuse, vUv - off).b;
+      col = (col - 0.5) * 1.06 + 0.5;                                // gentle contrast
+      col *= vec3(1.02, 1.0, 0.97);                                  // warm grade
+      col *= 1.0 - smoothstep(0.3, 1.0, length(d) * 1.35) * 0.42 * uStrength;   // vignette
+      float g = hash(vUv * uRes + fract(uTime)) - 0.5;
+      col += g * 0.03 * uStrength;                                   // film grain
+      gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
+    }`,
+};
+let composer = null, gtao = null, bloom = null, grade = null;
+function buildComposer() {
+  if (composer) { composer.dispose(); composer = null; gtao = null; bloom = null; }
+  if (quality === 'low') return;
+  const w = window.innerWidth, h = window.innerHeight, pr = renderer.getPixelRatio();
+  const target = new THREE.WebGLRenderTarget(w * pr, h * pr, { type: THREE.HalfFloatType, samples: 4 });
+  composer = new EffectComposer(renderer, target);
+  composer.addPass(new RenderPass(scene, camera));
+  if (quality === 'high') {
+    gtao = new GTAOPass(scene, camera, w, h);
+    gtao.output = GTAOPass.OUTPUT.Default;
+    gtao.blendIntensity = 0.9;
+    gtao.updateGtaoMaterial({ radius: 0.35, distanceExponent: 1, thickness: 1, distanceFallOff: 1, scale: 1.2, samples: 16, screenSpaceRadius: false });
+    gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 4, radiusExponent: 1, rings: 2, samples: 16 });
+    composer.addPass(gtao);
+  }
+  bloom = new UnrealBloomPass(new THREE.Vector2(w, h), quality === 'high' ? 0.3 : 0.22, 0.6, 1.0);
+  composer.addPass(bloom);
+  const weaponPass = new RenderPass(weapon.scene, weapon.camera);
+  weaponPass.clear = false; weaponPass.clearDepth = true;
+  composer.addPass(weaponPass);
+  composer.addPass(new OutputPass());
+  grade = new ShaderPass(GradeShader);
+  grade.uniforms.uStrength.value = quality === 'high' ? 1 : 0.7;
+  composer.addPass(grade);
+}
+
+function applyShadowQuality() {
+  const res = quality === 'high' ? 4096 : quality === 'medium' ? 2048 : 1024;
+  for (const l of world.lights) {
+    if (!l.isDirectionalLight) continue;
+    l.shadow.mapSize.set(res, res);
+    if (l.shadow.map) { l.shadow.map.dispose(); l.shadow.map = null; }
+  }
+}
+
+function setQuality(q, persist = true) {
+  quality = q; reflectQuality();
+  if (persist) { try { localStorage.setItem('bod-quality', q); } catch { /* private mode */ } }
+  applyShadowQuality();
+  buildComposer();
+}
+qualityButtons.forEach(b => b.addEventListener('click', () => { setQuality(b.dataset.q); sfx.init(); sfx.gavel(); }));
+
 function resize() {
   const w = window.innerWidth, h = window.innerHeight;
   renderer.setSize(w, h, false);
   camera.aspect = w / h; camera.updateProjectionMatrix();
   weapon.resize(w / h);
   foam.setViewport(h * renderer.getPixelRatio(), camera.fov);
+  if (composer) { composer.setSize(w, h); if (gtao) gtao.setSize(w, h); if (bloom) bloom.setSize(w, h); if (grade) grade.uniforms.uRes.value.set(w, h); }
 }
 window.addEventListener('resize', resize);
+buildComposer();
 resize();
 
 // ---------------------------------------------------------------- game flow
@@ -144,14 +235,13 @@ function step(dt) {
   player.update(dt);
   if (player.stepEvent) sfx.step(player.sprint);
 
-  // keep the player from walking through the MP
   if (npc.state !== 'hidden') {
     const dx = player.pos.x - npc.pos.x, dz = player.pos.z - npc.pos.z, d = Math.hypot(dx, dz);
     if (d < 0.8 && d > 1e-4) { player.pos.x += dx / d * (0.8 - d); player.pos.z += dz / d * (0.8 - d); }
   }
 
-  // energy / firing: the tank drains while spraying, recharges after a short pause and,
-  // once emptied, must recover to a minimum pressure before it sprays again
+  // energy / firing: drains while spraying, recharges after a pause; an emptied tank must
+  // recover to a minimum pressure before it sprays again
   if (G.energy <= 0) G.locked = true;
   if (G.locked && G.energy >= ENERGY_MAX * 0.2) G.locked = false;
   const wantFire = player.firing && G.energy > 0 && !G.locked;
@@ -171,7 +261,6 @@ function step(dt) {
     foam.emit(nozPos, nozDir, dt, 950, power);
   }
 
-  // particles, NPC, hits
   const hits = foam.update(dt, npc.target());
   npc.update(dt, player.pos);
   if (hits > 0) {
@@ -201,7 +290,6 @@ function step(dt) {
     G.hitTextTimer = 0; G.markerTimer = 0;
   }
 
-  // defeat -> card drop -> pickup
   if (npc.state === 'down' && !G.cardDropped) {
     G.cardDropped = true;
     card.drop(npc.pos.x, npc.pos.y, npc.pos.z);
@@ -221,11 +309,9 @@ function step(dt) {
     startAct();
   }
 
-  // act timer
   G.time -= dt;
   if (G.time <= 0) fail();
 
-  // HUD
   const dNpc = npc.state === 'hidden' ? 99 : Math.hypot(player.pos.x - npc.pos.x, player.pos.z - npc.pos.z);
   hud.setEnergy(G.energy, ENERGY_MAX);
   hud.setStreak(G.streak, G.combo);
@@ -236,24 +322,40 @@ function step(dt) {
   animateFlags(world.flags, G.totalTime);
 }
 
-// ---------------------------------------------------------------- loop
-player.update(0);                 // place the camera so the menu backdrop shows the chamber
+// ---------------------------------------------------------------- loop with a frame-rate watchdog
+player.update(0);
 camera.rotation.x = 0.08;
 let last = performance.now();
+const watch = { frames: 0, time: 0, checked: false };
 function frame(now) {
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
-  if (G.state === 'playing') step(dt);
-  else {
+  if (G.state === 'playing') {
+    step(dt);
+    if (!watch.checked && !G.debug) {
+      watch.frames++; watch.time += dt;
+      if (watch.time > 6) {
+        watch.checked = true;
+        const fps = watch.frames / watch.time;
+        if (fps < 28 && quality !== 'low') {
+          setQuality(quality === 'high' ? 'medium' : 'low');
+          hud.toast('OBNIŻONO JAKOŚĆ GRAFIKI', '', 2600);
+        }
+      }
+    }
+  } else {
     weapon.update(dt, { moving: false, sprint: false, firing: false, bobPhase: 0, look: { x: 0, y: 0 } });
     animateFlags(world.flags, now / 1000);
     hud.update(dt, null, 0, false);
   }
-  renderer.clear();
-  renderer.render(scene, camera);
-  renderer.clearDepth();
-  renderer.render(weapon.scene, weapon.camera);
+  if (grade) grade.uniforms.uTime.value = now / 1000;
+  foam.setLightDir(sunDir);
+  if (composer) composer.render();
+  else {
+    renderer.autoClear = true; renderer.render(scene, camera);
+    renderer.autoClear = false; renderer.clearDepth(); renderer.render(weapon.scene, weapon.camera);
+  }
 }
 requestAnimationFrame(frame);
 
@@ -264,5 +366,6 @@ window.__game = {
   setView: (x, z, yaw, pitch) => { player.pos.x = x; player.pos.z = z; player.yaw = yaw; player.pitch = pitch; },
   fire: on => { player.firing = on; },
   advance: (seconds, h = 1 / 60) => { for (let t = 0; t < seconds; t += h) if (G.state === 'playing') step(h); },
-  stats: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, particles: foam.count }),
+  setQuality,
+  stats: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, particles: foam.count, quality }),
 };

@@ -6,7 +6,7 @@ const EYE = 1.65, RADIUS = 0.35;
 export class Player {
   constructor(camera) {
     this.camera = camera;
-    this.pos = new THREE.Vector3(0, 0, 5.0);
+    this.pos = new THREE.Vector3(2.6, 0, 5.9);
     this.yaw = Math.PI; this.pitch = 0;
     this.vel = new THREE.Vector3();
     this.keys = new Set();
@@ -36,7 +36,7 @@ export class Player {
   }
 
   reset() {
-    this.pos.set(0, 0, 5.0); this.yaw = Math.PI; this.pitch = 0; this.vel.set(0, 0, 0); this.eyeY = EYE;
+    this.pos.set(2.6, 0, 5.9); this.yaw = Math.PI; this.pitch = 0; this.vel.set(0, 0, 0); this.eyeY = EYE;
   }
 
   forward(out = new THREE.Vector3()) {

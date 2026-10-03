@@ -167,6 +167,11 @@ kbd {
   background: #fff8e6; border-radius: 4px; font-family: var(--hud-font); font-weight: 700; font-size: 13px;
   box-shadow: 2px 2px 0 var(--ink);
 }
+.quality-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 0 0 14px; font-size: 13px; font-weight: 700; letter-spacing: 2px; color: #7a4a2a; }
+.seg { display: inline-flex; border: 2px solid var(--ink); box-shadow: 2px 2px 0 var(--ink); background: #fff8e6; }
+.seg button { font-family: var(--hud-font); font-weight: 700; font-size: 13px; letter-spacing: 1px; padding: 5px 12px; border: 0; background: transparent; color: #3a2416; cursor: pointer; border-right: 2px solid var(--ink); }
+.seg button:last-child { border-right: 0; }
+.seg button.on { background: var(--red); color: #fff; }
 .start-btn {
   font-family: var(--comic-font); font-size: 28px; letter-spacing: 2px; color: #fff; background: var(--red);
   border: 3px solid var(--ink); padding: 10px 28px; cursor: pointer; box-shadow: 5px 5px 0 var(--ink);

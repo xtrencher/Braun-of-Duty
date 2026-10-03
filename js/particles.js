@@ -33,7 +33,7 @@ export class FoamSystem {
     geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e5);
 
     this.material = new THREE.ShaderMaterial({
-      uniforms: { uTex: { value: smokeSprite() }, uScale: { value: 500 }, uTint: { value: new THREE.Color(0.93, 0.94, 0.97) } },
+      uniforms: { uTex: { value: smokeSprite() }, uScale: { value: 500 }, uTint: { value: new THREE.Color(0.93, 0.94, 0.97) }, uLight: { value: new THREE.Vector3(0.3, 0.8, 0.5) } },
       vertexShader: `
         attribute float aSize; attribute float aAlpha; attribute float aRot;
         varying float vAlpha; varying float vRot; varying float vDepth;
@@ -45,7 +45,7 @@ export class FoamSystem {
           vAlpha = aAlpha; vRot = aRot; vDepth = -mv.z;
         }`,
       fragmentShader: `
-        uniform sampler2D uTex; uniform vec3 uTint;
+        uniform sampler2D uTex; uniform vec3 uTint; uniform vec3 uLight;
         varying float vAlpha; varying float vRot; varying float vDepth;
         void main() {
           vec2 c = gl_PointCoord - 0.5;
@@ -53,7 +53,10 @@ export class FoamSystem {
           vec2 uv = vec2(c.x * co - c.y * s, c.x * s + c.y * co) + 0.5;
           vec4 t = texture2D(uTex, uv);
           float near = smoothstep(0.08, 0.45, vDepth);          // fade when it would cover the lens
-          float shade = 0.82 + 0.18 * (1.0 - length(c) * 1.4);   // subtle volume shading
+          // fake spherical normal per puff, lit by the view-space light direction
+          vec3 n = normalize(vec3(c.x * 2.0, -c.y * 2.0, sqrt(max(0.0, 1.0 - dot(c, c) * 4.0))));
+          float diff = max(0.0, dot(n, normalize(uLight)));
+          float shade = 0.62 + 0.38 * diff + 0.08 * n.y;
           gl_FragColor = vec4(uTint * shade, t.a * vAlpha * near);
           if (gl_FragColor.a < 0.004) discard;
         }`,
@@ -68,6 +71,11 @@ export class FoamSystem {
 
   setViewport(height, fovDeg) {
     this.material.uniforms.uScale.value = height / (2 * Math.tan(THREE.MathUtils.degToRad(fovDeg) / 2));
+  }
+
+  /** World-space light direction, converted to view space for the puff shading. */
+  setLightDir(dir) {
+    this.material.uniforms.uLight.value.copy(dir).transformDirection(this.camera.matrixWorldInverse);
   }
 
   /** Emit from `origin` along `dir` for `dt` seconds at `rate` particles/second. */

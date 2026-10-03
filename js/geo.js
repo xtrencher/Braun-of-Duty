@@ -50,3 +50,32 @@ export function box(w, h, d, mat, x = 0, y = 0, z = 0) {
   m.position.set(x, y, z);
   return m;
 }
+
+/** Plane with UVs scaled so a texture tiles every 1/uvScale metres. */
+export function plane(w, h, mat, uvScale = 0.5) {
+  const g = new THREE.PlaneGeometry(w, h);
+  const uv = g.attributes.uv;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * w * uvScale, uv.getY(i) * h * uvScale);
+  return new THREE.Mesh(g, mat);
+}
+
+/** Scale box UVs so textures tile in metres rather than stretching over each face. */
+export function boxUV(geo, uvScale = 0.5) {
+  const p = geo.parameters, uv = geo.attributes.uv;
+  const sizes = [[p.depth, p.height], [p.depth, p.height], [p.width, p.depth], [p.width, p.depth], [p.width, p.height], [p.width, p.height]];
+  const per = uv.count / 6;
+  for (let f = 0; f < 6; f++) for (let i = 0; i < per; i++) {
+    const k = f * per + i; uv.setXY(k, uv.getX(k) * sizes[f][0] * uvScale, uv.getY(k) * sizes[f][1] * uvScale);
+  }
+  return geo;
+}
+
+/** Box whose local +z axis points along the radial direction at `angle`, centred at radius r. */
+export function radialBox(r, angle, len, h, thick, y, mat, uvScale) {
+  const geo = new THREE.BoxGeometry(thick, h, len);
+  if (uvScale) boxUV(geo, uvScale);
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set(Math.sin(angle) * r, y, Math.cos(angle) * r);
+  m.rotation.y = angle;
+  return m;
+}

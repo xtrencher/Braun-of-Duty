@@ -1,5 +1,7 @@
 import * as THREE from 'three';
-import { L, floorHeight, resolveMove, findPath, nearestNode, cart, polar, angDiff } from './chamber.js';
+import { RoundedBoxGeometry } from '../vendor/three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { createHuman } from './human.js';
+import { floorHeight, resolveMove, findPath, nearestNode, cart, angDiff } from './chamber.js';
 
 const MAX_HP = 100;
 
@@ -20,54 +22,19 @@ export class Politician {
     this.stunTimer = 0;
     this.panic = 0;
     this.runPhase = 0;
-    this.edge = null; this.path = []; this.goal = -1; this.replan = 0;
+    this.edge = null; this.path = []; this.goal = -1; this.replan = 0; this.planCooldown = 0;
     this.lastNode = graph.nodes[0];
     this.speedScale = 1;
     this._build();
   }
 
   _build() {
-    const suit = new THREE.MeshStandardMaterial({ color: 0x1a1f2e, roughness: 0.85, emissive: 0xff2a1a, emissiveIntensity: 0 });
-    const shirt = new THREE.MeshStandardMaterial({ color: 0xf4f4f4, roughness: 0.8, emissive: 0xff2a1a, emissiveIntensity: 0 });
-    const tie = new THREE.MeshStandardMaterial({ color: 0xc8161c, roughness: 0.6, emissive: 0xff2a1a, emissiveIntensity: 0 });
-    const skin = new THREE.MeshStandardMaterial({ color: 0xe2b48c, roughness: 0.7, emissive: 0xff2a1a, emissiveIntensity: 0 });
-    const hair = new THREE.MeshStandardMaterial({ color: 0x4a3324, roughness: 0.9, emissive: 0xff2a1a, emissiveIntensity: 0 });
-    const shoe = new THREE.MeshStandardMaterial({ color: 0x14100c, roughness: 0.4, emissive: 0xff2a1a, emissiveIntensity: 0 });
-    this.mats = [suit, shirt, tie, skin, hair, shoe];
-    const mesh = (geo, mat, x, y, z, parent = this.body) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; parent.add(m); return m; };
-
-    this.body = new THREE.Group();           // pivot at the feet
+    const human = createHuman({ tone: '#e2b08c', suit: '#1b2640', hair: '#2a1c13' });
+    this.body = human.root;                      // pivot at the feet, faces +z
     this.group.add(this.body);
-    // legs (pivot at hip)
-    this.legL = new THREE.Group(); this.legL.position.set(-0.11, 0.86, 0); this.body.add(this.legL);
-    this.legR = new THREE.Group(); this.legR.position.set(0.11, 0.86, 0); this.body.add(this.legR);
-    for (const leg of [this.legL, this.legR]) {
-      mesh(new THREE.BoxGeometry(0.17, 0.82, 0.19), suit, 0, -0.41, 0, leg);
-      mesh(new THREE.BoxGeometry(0.17, 0.08, 0.3), shoe, 0, -0.86, 0.05, leg);
-    }
-    // torso
-    mesh(new THREE.BoxGeometry(0.52, 0.62, 0.3), suit, 0, 1.16, 0);
-    mesh(new THREE.BoxGeometry(0.16, 0.5, 0.03), shirt, 0, 1.2, 0.155);
-    mesh(new THREE.BoxGeometry(0.07, 0.42, 0.02), tie, 0, 1.17, 0.175);
-    mesh(new THREE.BoxGeometry(0.56, 0.1, 0.32), suit, 0, 1.44, 0);   // shoulders
-    // arms (pivot at shoulder)
-    this.armL = new THREE.Group(); this.armL.position.set(-0.33, 1.42, 0); this.body.add(this.armL);
-    this.armR = new THREE.Group(); this.armR.position.set(0.33, 1.42, 0); this.body.add(this.armR);
-    for (const arm of [this.armL, this.armR]) {
-      mesh(new THREE.BoxGeometry(0.13, 0.6, 0.13), suit, 0, -0.3, 0, arm);
-      mesh(new THREE.BoxGeometry(0.1, 0.04, 0.1), shirt, 0, -0.6, 0, arm);
-      mesh(new THREE.BoxGeometry(0.09, 0.12, 0.09), skin, 0, -0.68, 0, arm);
-    }
-    // head
-    mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.1, 8), skin, 0, 1.52, 0);
-    const head = mesh(new THREE.BoxGeometry(0.24, 0.28, 0.24), skin, 0, 1.72, 0);
-    mesh(new THREE.BoxGeometry(0.26, 0.1, 0.26), hair, 0, 0.12, -0.01, head);
-    mesh(new THREE.BoxGeometry(0.26, 0.16, 0.04), hair, 0, 0.0, -0.12, head);
-    mesh(new THREE.BoxGeometry(0.05, 0.03, 0.02), hair, -0.06, 0.05, 0.12, head);
-    mesh(new THREE.BoxGeometry(0.05, 0.03, 0.02), hair, 0.06, 0.05, 0.12, head);
-    // voting card in the left hand
-    const card = mesh(new THREE.BoxGeometry(0.14, 0.09, 0.01), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x6688ff, emissiveIntensity: 0.25 }), 0, -0.7, 0.06, this.armL);
-    card.castShadow = false;
+    this.bones = human.bones;
+    this.mats = human.mats;
+    this.skinned = human.mesh;
     this.group.visible = false;
   }
 
@@ -81,11 +48,12 @@ export class Politician {
     this.state = 'idle'; this.edge = null; this.path = []; this.goal = -1; this.replan = 0;
     this.group.visible = true;
     this.body.rotation.set(0, 0, 0); this.body.position.set(0, 0, 0);
+    this.bones.hips.position.y = 0.95; this.bones.head.rotation.set(0, 0, 0); this.bones.spine.rotation.set(0, 0, 0);
   }
 
   hide() { this.state = 'hidden'; this.group.visible = false; }
 
-  /** Pick a destination far from the player and route there. */
+  /** Pick a destination and route there. far=true flees the player, otherwise strolls. */
   plan(playerPos, far = true) {
     const g = this.graph;
     const from = nearestNode(g, this.pos.x, this.pos.z);
@@ -97,7 +65,6 @@ export class Politician {
       const dn = Math.hypot(n.x - this.pos.x, n.z - this.pos.z);
       let score;
       if (far) {
-        // a proper run: well away from the player, a good distance from here, never toward the player
         if (dn < 6) continue;
         score = Math.min(dp, 18) + dn * 0.25 + (dp < dPlayerNow * 0.8 ? -12 : 0) + Math.random() * 6;
       } else {
@@ -109,7 +76,6 @@ export class Politician {
     this.goal = best.id;
     const ids = findPath(g, from.id, best.id);
     this.path = ids.slice(ids[0] === from.id ? 1 : 0);
-    // approach the first node directly in case we were knocked off the graph
     this.edge = { type: 'direct', ax: this.pos.x, az: this.pos.z, node: from, s: 0, len: Math.max(0.01, Math.hypot(from.x - this.pos.x, from.z - this.pos.z)) };
     if (this.edge.len < 0.25) { this.lastNode = from; this._nextEdge(); }
     this.replan = 2.5 + Math.random() * 2;
@@ -147,6 +113,25 @@ export class Politician {
 
   _fall() { this.state = 'down'; this.downTimer = 0; this.vel.set(0, 0, 0); }
 
+  /**
+   * Drive the skeleton. legSwing/armSwing in radians (positive = left limb forward),
+   * kneeBend/elbowBend flexion, armsUp = panicked arms-out pose.
+   */
+  _pose(legSwing, kneeBend, armSwing, elbowBend, armsUp) {
+    const B = this.bones;
+    B.upperLegL.rotation.x = -legSwing; B.upperLegR.rotation.x = legSwing;
+    B.lowerLegL.rotation.x = Math.max(0, kneeBend); B.lowerLegR.rotation.x = Math.max(0, -kneeBend);
+    B.footL.rotation.x = -Math.max(0, kneeBend) * 0.5; B.footR.rotation.x = -Math.max(0, -kneeBend) * 0.5;
+    if (armsUp) {
+      const flap = Math.sin(this.runPhase * 2) * 0.25;
+      B.upperArmL.rotation.set(-0.55 + flap, 0.2, -1.05); B.upperArmR.rotation.set(-0.55 - flap, -0.2, 1.05);
+      B.forearmL.rotation.set(-0.9, 0.3, -0.2); B.forearmR.rotation.set(-0.9, -0.3, 0.2);
+    } else {
+      B.upperArmL.rotation.set(armSwing, 0, -0.12); B.upperArmR.rotation.set(-armSwing, 0, 0.12);
+      B.forearmL.rotation.set(-elbowBend, 0, 0); B.forearmR.rotation.set(-elbowBend, 0, 0);
+    }
+  }
+
   update(dt, playerPos) {
     if (this.state === 'hidden') return;
     this.sinceHit += dt;
@@ -162,7 +147,8 @@ export class Politician {
       this.pos.x = rx; this.pos.z = rz; this.pos.y += this.vel.y * dt;
       const fl = floorHeight(this.pos.x, this.pos.z);
       this.body.rotation.x = THREE.MathUtils.lerp(this.body.rotation.x, -0.9, Math.min(1, 6 * dt));
-      this.armL.rotation.x = -2.6; this.armR.rotation.x = -2.6;
+      this._pose(0.5, 0.8, 0, 0, true);
+      this.bones.spine.rotation.x = -0.2;
       if (this.pos.y <= fl && this.vel.y < 0) {
         this.pos.y = fl; this.vel.set(0, 0, 0);
         if (this.hp <= 0) this._fall(); else { this.state = 'stunned'; this.stunTimer = 0.45; }
@@ -173,23 +159,25 @@ export class Politician {
     if (this.state === 'down') {
       this.downTimer += dt;
       this.body.rotation.x = THREE.MathUtils.lerp(this.body.rotation.x, -Math.PI / 2 + 0.12, Math.min(1, 5 * dt));
-      this.body.position.y = THREE.MathUtils.lerp(this.body.position.y, 0.25, Math.min(1, 5 * dt));
-      this.armL.rotation.x = -1.2; this.armR.rotation.x = -1.4;
+      this.body.position.y = THREE.MathUtils.lerp(this.body.position.y, 0.22, Math.min(1, 5 * dt));
+      this._pose(0.15, 0.3, 0, 0.4, false);
+      this.bones.upperArmL.rotation.set(-1.3, 0, -0.9); this.bones.upperArmR.rotation.set(-1.6, 0, 0.7);
+      this.bones.head.rotation.set(0.3, 0.4, 0);
       this.group.position.copy(this.pos);
       return;
     }
     if (this.state === 'stunned') {
       this.stunTimer -= dt;
       this.body.rotation.x = THREE.MathUtils.lerp(this.body.rotation.x, 0, Math.min(1, 8 * dt));
-      this.armL.rotation.x = -2.2 + Math.sin(this.sinceHit * 30) * 0.3; this.armR.rotation.x = -2.2 - Math.sin(this.sinceHit * 30) * 0.3;
+      this._pose(0, 0.2, Math.sin(this.sinceHit * 30) * 0.3, 0, true);
       if (this.stunTimer <= 0) { this.state = 'flee'; this.plan(playerPos, true); }
       this.pos.y = floorHeight(this.pos.x, this.pos.z);
       this.group.position.copy(this.pos);
       return;
     }
 
-    // ---- idle / flee navigation (with hysteresis so he does not dither at the threat radius)
-    this.planCooldown = Math.max(0, (this.planCooldown || 0) - dt);
+    // ---- idle / flee navigation (hysteresis keeps him from dithering at the threat radius)
+    this.planCooldown = Math.max(0, this.planCooldown - dt);
     const canPlan = this.planCooldown <= 0;
     if (this.state !== 'flee' && (dPlayer < 14 || this.panic > 0)) { this.state = 'flee'; this.plan(playerPos, true); }
     else if (this.state === 'flee' && dPlayer > 22 && this.panic <= 0 && this.sinceHit > 6 && canPlan) { this.state = 'idle'; this.plan(playerPos, false); }
@@ -216,16 +204,17 @@ export class Politician {
     this.group.position.copy(this.pos);
     this.group.rotation.y = this.facing;
 
-    // run cycle
-    this.runPhase += dt * speed * 2.6;
-    const sw = Math.sin(this.runPhase) * Math.min(1, speed / 3) * 0.85;
-    this.legL.rotation.x = sw; this.legR.rotation.x = -sw;
-    const panicArms = this.panic > 0 && this.state === 'flee';
-    this.armL.rotation.x = panicArms ? -2.4 + Math.sin(this.runPhase * 2) * 0.35 : -sw * 0.8;
-    this.armR.rotation.x = panicArms ? -2.4 - Math.sin(this.runPhase * 2) * 0.35 : sw * 0.8;
-    this.armL.rotation.z = panicArms ? -0.4 : 0.08; this.armR.rotation.z = panicArms ? 0.4 : -0.08;
-    this.body.rotation.x = THREE.MathUtils.lerp(this.body.rotation.x, speed > 3 ? 0.14 : 0, Math.min(1, 6 * dt));
-    this.body.position.y = Math.abs(Math.sin(this.runPhase)) * 0.05 * Math.min(1, speed / 3);
+    // run / walk cycle with knee and elbow bend
+    const gait = Math.min(1, speed / 3.2);
+    this.runPhase += dt * speed * 2.4;
+    const s = Math.sin(this.runPhase), c = Math.cos(this.runPhase);
+    const legSwing = s * (0.35 + 0.5 * gait);
+    const kneeBend = (0.3 + 0.9 * gait) * Math.max(0, -c) + 0.1 * gait;   // tuck the trailing leg
+    this._pose(legSwing, kneeBend, s * (0.3 + 0.5 * gait), 0.4 + 0.7 * gait, this.panic > 0 && this.state === 'flee');
+    this.body.rotation.x = THREE.MathUtils.lerp(this.body.rotation.x, 0.04 + 0.08 * gait, Math.min(1, 6 * dt));
+    this.bones.spine.rotation.x = 0.04 * gait; this.bones.hips.rotation.y = s * 0.08 * gait; this.bones.chest.rotation.y = -s * 0.1 * gait;
+    this.bones.hips.position.y = 0.95 + Math.abs(s) * 0.045 * gait - 0.02 * gait;
+    this.bones.head.rotation.set(0.05 * gait, Math.sin(this.runPhase * 0.5) * 0.12 * gait, 0);
   }
 
   /** Capsule used by the particle system. */
@@ -243,7 +232,7 @@ export class Card {
   constructor(scene) {
     this.group = new THREE.Group();
     const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, emissive: 0x88aaff, emissiveIntensity: 0.6 });
-    const card = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.02, 0.24), mat);
+    const card = new THREE.Mesh(new RoundedBoxGeometry(0.36, 0.02, 0.24, 2, 0.008), mat);
     const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.022, 0.05), new THREE.MeshStandardMaterial({ color: 0xc8161c, emissive: 0xc8161c, emissiveIntensity: 0.5 }));
     stripe.position.z = -0.08;
     this.group.add(card, stripe);
