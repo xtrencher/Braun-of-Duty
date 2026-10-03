@@ -1,18 +1,20 @@
 /**
  * Touch controls: a virtual joystick on the lower-left, drag-to-look anywhere else,
- * a hold-to-spray button, a sprint toggle and a pause button. Multi-touch safe: every
- * pointer is tracked by id so looking and moving and spraying can all happen at once.
+ * a hold-to-spray button, a sprint toggle, pause and fullscreen buttons. Multi-touch safe:
+ * every pointer is tracked by id so looking and moving and spraying can all happen at once,
+ * and the finger holding the spray button steers the camera as it slides.
  */
 export function isTouchDevice() {
   return (navigator.maxTouchPoints > 0 || 'ontouchstart' in window) && matchMedia('(pointer: coarse)').matches;
 }
 
-export function setupTouch(player, { onPause }) {
+export function setupTouch(player, { onPause, onFullscreen }) {
   const ui = document.getElementById('touch-ui');
   const stick = document.getElementById('stick'), knob = document.getElementById('stick-knob');
-  const fire = document.getElementById('btn-fire'), sprint = document.getElementById('btn-sprint'), pause = document.getElementById('btn-pause');
+  const fire = document.getElementById('btn-fire'), sprint = document.getElementById('btn-sprint'), pause = document.getElementById('btn-pause'), fsBtn = document.getElementById('btn-fs');
+  const LOOK = 3.2;   // camera sensitivity multiplier for touch
   ui.classList.remove('hidden');
-  const state = { stickId: null, lookId: null, fireId: null, sx: 0, sy: 0, lx: 0, ly: 0, sprintOn: false };
+  const state = { stickId: null, lookId: null, fireId: null, sx: 0, sy: 0, lx: 0, ly: 0, fx: 0, fy: 0, sprintOn: false };
   const RADIUS = 52;
   player.touchMove = { x: 0, y: 0 };
 
@@ -47,7 +49,12 @@ export function setupTouch(player, { onPause }) {
     else if (e.pointerId === state.lookId) {
       const dx = e.clientX - state.lx, dy = e.clientY - state.ly;
       state.lx = e.clientX; state.ly = e.clientY;
-      player.applyLook(dx * 1.8, dy * 1.8);
+      player.applyLook(dx * LOOK, dy * LOOK);
+    } else if (e.pointerId === state.fireId) {
+      // the spraying finger steers the camera as it slides, even off the button
+      const dx = e.clientX - state.fx, dy = e.clientY - state.fy;
+      state.fx = e.clientX; state.fy = e.clientY;
+      player.applyLook(dx * LOOK, dy * LOOK);
     }
   }, { passive: true });
   const release = e => {
@@ -58,11 +65,12 @@ export function setupTouch(player, { onPause }) {
   document.addEventListener('pointercancel', release);
 
   // spray: hold the button
-  fire.addEventListener('pointerdown', e => { e.preventDefault(); try { fire.setPointerCapture(e.pointerId); } catch { /* synthetic or already released pointer */ } state.fireId = e.pointerId; player.firing = true; fire.classList.add('on'); });
+  fire.addEventListener('pointerdown', e => { e.preventDefault(); try { fire.setPointerCapture(e.pointerId); } catch { /* synthetic or already released pointer */ } state.fireId = e.pointerId; state.fx = e.clientX; state.fy = e.clientY; player.firing = true; fire.classList.add('on'); });
   const fireOff = e => { if (e.pointerId === state.fireId) { state.fireId = null; player.firing = false; fire.classList.remove('on'); } };
   fire.addEventListener('pointerup', fireOff); fire.addEventListener('pointercancel', fireOff); fire.addEventListener('lostpointercapture', fireOff);
   sprint.addEventListener('pointerdown', e => { e.preventDefault(); state.sprintOn = !state.sprintOn; sprint.classList.toggle('on', state.sprintOn); player.sprint = state.sprintOn; });
   pause.addEventListener('pointerdown', e => { e.preventDefault(); onPause(); });
+  fsBtn.addEventListener('pointerdown', e => { e.preventDefault(); onFullscreen(); });
 
   // when the game pauses, drop every held input
   return {

@@ -44,8 +44,9 @@ suit (lapels, shirt, tie, pockets, cloth weave) and a sculpted head with a paint
 ## Controls
 
 On phones and tablets the game switches to touch controls automatically: a virtual joystick on the
-lower-left (push to the edge to sprint), drag anywhere else to look, hold **GAŚ!** to spray, **BIEG**
-toggles sprint, **II** pauses. It goes fullscreen and asks for landscape on start.
+lower-left (push to the edge to sprint), drag anywhere else to look, hold **GAŚ!** to spray (the same
+finger steers the camera while it slides), **BIEG** toggles sprint, **II** pauses, **⛶** toggles fullscreen.
+The objective panel shows the elapsed game time on every platform. It goes fullscreen and asks for landscape on start.
 
 Desktop:
 

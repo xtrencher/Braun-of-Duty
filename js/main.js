@@ -64,7 +64,15 @@ const npc = new Politician(scene, graph);
 const card = new Card(scene);
 const hud = new HUD(camera);
 const sfx = new Sfx();
-const touch = TOUCH ? setupTouch(player, { onPause: () => pause() }) : null;
+function toggleFullscreen() {
+  const el = document.documentElement;
+  try {
+    if (document.fullscreenElement || document.webkitFullscreenElement) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); }
+    else { const p = el.requestFullscreen ? el.requestFullscreen({ navigationUI: 'hide' }) : el.webkitRequestFullscreen && el.webkitRequestFullscreen(); if (p && p.catch) p.catch(() => {}); }
+  } catch { /* not supported */ }
+}
+$('fs-btn').addEventListener('click', e => { e.stopPropagation(); toggleFullscreen(); });
+const touch = TOUCH ? setupTouch(player, { onPause: () => pause(), onFullscreen: toggleFullscreen }) : null;
 if (TOUCH) { $('controls-touch').style.display = ''; $('controls-desktop').style.display = 'none'; $('quality').closest('.quality-row').style.display = 'none'; }
 if (touch) touch.show(false);
 
@@ -190,7 +198,7 @@ function startAct() {
 function newGame() {
   Object.assign(G, { act: 1, cards: 0, energy: ENERGY_MAX, idle: 0, locked: false, streak: 0, combo: 0, comboTimer: 0, lastHit: 99, totalTime: 0, impacts: 0, reasumpcje: 0 });
   player.reset(); foam.clear(); splats.clear(); hud.clearAnchored();
-  hud.setEnergy(G.energy, ENERGY_MAX); hud.setStreak(0, 0); hud.setCombat(false);
+  hud.setEnergy(G.energy, ENERGY_MAX); hud.setStreak(0, 0); hud.setCombat(false); hud.setElapsed(0);
   startAct();
 }
 
@@ -353,6 +361,7 @@ function step(dt) {
   hud.setStreak(G.streak, G.combo);
   hud.setCombat(G.lastHit < 3 || dNpc < 11, G.lastHit < 2.5);
   hud.setAct(G.act, ACTS, G.time);
+  hud.setElapsed(G.totalTime);
   const showHealth = npc.state !== 'hidden' && npc.state !== 'down' && npc.sinceHit < 3.5;
   hud.update(dt, npc.headPosition(tmp), npc.hp / npc.maxHp, showHealth);
   animateFlags(world.flags, G.totalTime);
